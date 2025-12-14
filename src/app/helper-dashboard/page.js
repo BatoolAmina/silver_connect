@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 
 const StarRating = ({ rating }) => {
@@ -40,7 +40,7 @@ export default function HelperDashboard() {
         description: ''
     });
     
-    const fetchAllData = async (parsedUser) => {
+    const fetchAllData = useCallback(async (parsedUser) => {
         try {
             const profileRes = await fetch(`${API_BASE_URL}/api/helper-profile/${parsedUser.email}`);
             
@@ -91,7 +91,7 @@ export default function HelperDashboard() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [router]);
     
     useEffect(() => {
         const storedUser = localStorage.getItem('user');
