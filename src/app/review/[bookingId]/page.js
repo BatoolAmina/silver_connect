@@ -57,31 +57,51 @@ export default function ReviewPage() {
 
     useEffect(() => {
         const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-            setUser(JSON.parse(storedUser));
-        } else {
+        const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+        
+        if (!parsedUser) {
             router.push('/login');
             return;
         }
+        setUser(parsedUser);
 
         const fetchBookingDetails = async () => {
+            if (!bookingId) {
+                router.push('/dashboard');
+                return;
+            }
+
             try {
                 const res = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}`);
+                
                 if (!res.ok) {
-                    throw new Error("Booking not found or access denied.");
+                    throw new Error("Booking not found or network error.");
                 }
+                
                 const data = await res.json();
                 
+                // 1. Check Booking Status
                 if (data.status !== 'Confirmed') {
-                    console.warn(`Cannot review. Booking status is ${data.status}.`);
-                    router.push('/dashboard');
+                    setError(`Booking must be 'Confirmed' to be reviewed. Status: ${data.status}`);
+                    // Allow the user to see the error briefly before redirect
+                    setTimeout(() => router.push('/dashboard'), 3000); 
                     return;
                 }
-
-                if (data.userEmail !== JSON.parse(storedUser).email) {
-                    console.warn("Unauthorized access to review page.");
-                    router.push('/dashboard');
+                
+                // 2. Check Authorization (Ensure current user owns the booking)
+                if (data.userEmail !== parsedUser.email) {
+                    setError("Unauthorized access to this review form.");
+                    setTimeout(() => router.push('/dashboard'), 3000);
                     return;
+                }
+                
+                // 3. Check Review Status
+                if (data.isReviewed === true) {
+                    setMessage({ 
+                        type: 'error', 
+                        text: "This booking has already been reviewed. If you deleted a review, please proceed." 
+                    });
+                    // DO NOT redirect here, as the user might be trying to re-review after deletion.
                 }
 
                 setBooking(data);
@@ -94,20 +114,24 @@ export default function ReviewPage() {
             }
         };
 
-        if (bookingId) {
-            fetchBookingDetails();
-        }
+        fetchBookingDetails();
+        
     }, [bookingId, router]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setMessage({ type: '', text: '' });
         
-        if (!user || !booking || rating === 0) {
-            setMessage({ type: 'error', text: "Error: Required user/booking data is missing or rating is zero." });
+        if (!user || !booking) {
+            setMessage({ type: 'error', text: "Error: Required user or booking data is missing." });
             return;
         }
         
+        if (rating === 0) {
+            setMessage({ type: 'error', text: "Please select a rating of at least 1 star." });
+            return;
+        }
+
         setIsSubmitting(true);
         const HELPER_ID = booking.helperId; 
         const REVIEWER_NAME = user.name || user.fullName;
@@ -143,13 +167,18 @@ export default function ReviewPage() {
     };
 
 
-    if (loading || !user || !booking) {
+    if (loading || !user) {
         return <div className="min-h-screen bg-gray-50 flex items-center justify-center font-bold text-gray-500">Loading Review Form...</div>;
     }
 
     if (error) {
-        return <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center text-red-600 font-bold">Error loading booking details.</div>;
+        return <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center text-red-600 font-bold">Error: {error}</div>;
     }
+
+    if (!booking) {
+        return <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center text-red-600 font-bold">Booking data unavailable.</div>;
+    }
+
 
     return (
         <div className="min-h-screen bg-gray-50 font-sans py-12 px-6">
@@ -157,7 +186,7 @@ export default function ReviewPage() {
                 
                 <h1 className="text-3xl font-extrabold text-gray-900 mb-2">Service Review</h1>
                 <p className="text-gray-600 mb-6 border-b pb-4">
-                    Please rate your experience with <span className="font-bold text-gray-800">{booking.helperName}</span>.
+                    Please rate your experience with <span className="font-bold text-gray-800">{booking.helperName}</span>, booked on {booking.date}.
                 </p>
 
                 {message.text && (

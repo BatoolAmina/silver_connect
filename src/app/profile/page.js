@@ -12,37 +12,30 @@ export default function ProfilePage() {
     const [isSaving, setIsSaving] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
 
-    // State for image handling
     const [selectedImageFile, setSelectedImageFile] = useState(null);
-    const [imageURLInput, setImageURLInput] = useState(''); // Holds the URL currently in the text input
+    const [imageURLInput, setImageURLInput] = useState('');
 
     const [formData, setFormData] = useState({
         name: '',
         email: '',
         role: '',
-        image: '', // This will hold the confirmed URL
+        image: '',
         phone: '',
         address: '',
         bio: ''
     });
 
-    useEffect(() => {
-        const storedUser = localStorage.getItem('user');
-        if (!storedUser) {
-            router.push('/login');
-            return;
-        }
-        const parsedUser = JSON.parse(storedUser);
-        
-        const validName = parsedUser.name || parsedUser.fullName || "User";
-        const validImage = parsedUser.image || `https://i.pravatar.cc/150?u=${validName}`;
-        
+    const updateUserData = (updatedUser) => {
+        const validName = updatedUser.fullName || updatedUser.name || "User";
+        const validImage = updatedUser.image || `https://i.pravatar.cc/150?u=${validName}`;
+
         const userData = { 
-            ...parsedUser, 
+            ...updatedUser, 
             name: validName, 
             image: validImage 
         };
         
+        localStorage.setItem('user', JSON.stringify(userData));
         setUser(userData);
         setImageURLInput(validImage);
         setFormData({
@@ -54,6 +47,17 @@ export default function ProfilePage() {
             address: userData.address || '',
             bio: userData.bio || ''
         });
+    };
+
+    useEffect(() => {
+        const storedUser = localStorage.getItem('user');
+        if (!storedUser) {
+            router.push('/login');
+            return;
+        }
+        const parsedUser = JSON.parse(storedUser);
+        updateUserData(parsedUser);
+        
     }, [router]);
 
     const handleChange = (e) => {
@@ -73,13 +77,12 @@ export default function ProfilePage() {
         const file = e.target.files[0];
         if (file) {
             setSelectedImageFile(file);
-            setImageURLInput(''); // Clear URL input when a file is selected
-            setFormData({ ...formData, image: URL.createObjectURL(file) }); // Show local preview
+            setImageURLInput(''); 
+            setFormData({ ...formData, image: URL.createObjectURL(file) });
         }
         setMessage({ type: '', text: '' });
     };
     
-    // Function to handle image upload separately
     const uploadImage = async () => {
         const dataToSend = new FormData();
         dataToSend.append('image', selectedImageFile);
@@ -111,9 +114,8 @@ export default function ProfilePage() {
         setMessage({ type: '', text: '' });
 
         try {
-            let finalImageUrl = imageURLInput; // CRITICAL: Start with the URL input value.
+            let finalImageUrl = imageURLInput;
             
-            // 1. Handle Image Upload/URL Update
             if (selectedImageFile) {
                 const uploadResult = await uploadImage();
                 
@@ -122,22 +124,17 @@ export default function ProfilePage() {
                 }
                 finalImageUrl = uploadResult.newImageUrl;
             } else if (imageURLInput !== user.image) {
-                // If no file was selected, but the URL input has changed (manual paste or randomize),
-                // the finalImageUrl is already set to imageURLInput at the start of this function.
-                // We just need to make sure the image property in formData is updated for the userPayload
                 finalImageUrl = imageURLInput;
             }
 
-            // 2. Prepare the payload for the User update (text fields + final image URL)
             const userPayload = {
                 fullName: formData.name,
-                image: finalImageUrl, // Use the finalized URL
+                image: finalImageUrl,
                 phone: formData.phone,
                 address: formData.address,
                 bio: formData.bio
             };
 
-            // 3. Update the main User profile (JSON update)
             const userRes = await fetch(`${API_BASE_URL}/api/users/${user.email}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -150,15 +147,8 @@ export default function ProfilePage() {
                 return setMessage({ type: 'error', text: `Failed to update Profile Text: ${userData.message || 'Unknown error.'}` });
             }
 
-            // 4. Finalize and update session
-            const updatedStorageUser = { 
-                ...userData.user, 
-                name: userData.user.name || userData.user.fullName
-            };
+            updateUserData(userData.user);
             
-            localStorage.setItem('user', JSON.stringify(updatedStorageUser));
-            
-            setUser(updatedStorageUser);
             setIsEditing(false);
             setSelectedImageFile(null);
             
@@ -202,7 +192,7 @@ export default function ProfilePage() {
                 return 'hidden';
         }
     };
-
+    
     if (!user) return <div className="min-h-screen bg-gray-100 flex items-center justify-center">Loading...</div>; 
 
     return (
@@ -232,7 +222,7 @@ export default function ProfilePage() {
                                 <div className="inline-block bg-gray-200 text-gray-800 text-xs font-bold px-4 py-1.5 rounded-full uppercase tracking-wider border border-gray-300">
                                     {user.role || 'Member'}
                                 </div>
-
+                                
                                 {!isEditing && (
                                     <div className="mt-6 text-left space-y-3 border-t border-gray-100 pt-6">
                                         <div className="flex items-center gap-3 text-sm text-gray-600">
@@ -260,6 +250,9 @@ export default function ProfilePage() {
                                 {message.text}
                             </div>
                         )}
+
+                        {/* REMOVED: Verification Actions Card */}
+
 
                         <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-8">
                             <div className="flex justify-between items-center mb-8 border-b border-gray-100 pb-4">
@@ -296,7 +289,6 @@ export default function ProfilePage() {
                                 {isEditing && (
                                     <div className="bg-gray-50 p-6 rounded-2xl border border-gray-200 animate-fadeIn mb-6">
                                         
-                                        {/* File Upload Option */}
                                         <label className="block text-sm font-bold text-gray-900 mb-2">Upload New Picture (File)</label>
                                         <input 
                                             type="file" 
@@ -311,7 +303,6 @@ export default function ProfilePage() {
                                         
                                         <p className="text-center text-gray-400 font-semibold my-4">-- OR --</p>
 
-                                        {/* URL Input Option */}
                                         <label className="block text-sm font-bold text-gray-900 mb-2">Paste Image URL</label>
                                         <div className="flex gap-3">
                                             <input 
@@ -320,7 +311,7 @@ export default function ProfilePage() {
                                                 value={imageURLInput} 
                                                 onChange={(e) => {
                                                     setImageURLInput(e.target.value);
-                                                    setSelectedImageFile(null); // Clear file choice if user edits URL
+                                                    setSelectedImageFile(null); 
                                                     setFormData({ ...formData, image: e.target.value });
                                                 }} 
                                                 placeholder="Paste Image URL"

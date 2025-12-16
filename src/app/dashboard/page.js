@@ -1,8 +1,34 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+
+// Helper component for Star Rating (Re-used for the Edit Modal)
+const MAX_STARS = 5;
+const StarRatingInput = ({ rating, setRating, max = MAX_STARS }) => {
+    const stars = [];
+    for (let i = 0; i < max; i++) {
+        const starValue = i + 1;
+        stars.push(
+            <span
+                key={i}
+                className={`cursor-pointer transition-colors text-2xl ${
+                    starValue <= rating ? 'text-amber-500' : 'text-gray-300 hover:text-amber-400'
+                }`}
+                onClick={() => setRating(starValue)}
+            >
+                ★
+            </span>
+        );
+    }
+    return (
+        <div className="flex space-x-1 justify-start">
+            {stars}
+        </div>
+    );
+};
+
 
 export default function Dashboard() {
     const router = useRouter();
@@ -47,6 +73,7 @@ export default function Dashboard() {
 
         } catch (error) {
             console.error("Error fetching dashboard data:", error);
+            setMessage({ type: 'error', text: 'Failed to load dashboard data.' });
         } finally {
             setLoading(false);
         }
@@ -174,11 +201,22 @@ export default function Dashboard() {
     };
 
     const handleEditReviewChange = (e) => {
-        setEditReviewForm({ ...editReviewForm, [e.target.name]: e.target.value });
+        const { name, value } = e.target;
+        setEditReviewForm(prev => ({ ...prev, [name]: value }));
+    };
+    
+    const handleSetEditRating = (newRating) => {
+        setEditReviewForm(prev => ({ ...prev, rating: newRating }));
     };
 
     const handleUpdateReview = async (e) => {
         e.preventDefault();
+        
+        if (editReviewForm.rating === 0) {
+            setMessage({ type: 'error', text: "Please select a star rating (1-5)." });
+            return;
+        }
+
         try {
             const res = await fetch(`${API_BASE_URL}/api/reviews/${isEditingReview._id}`, {
                 method: 'PUT',
@@ -189,7 +227,7 @@ export default function Dashboard() {
             if (res.ok) {
                 setMessage({ type: 'success', text: "Review updated successfully!" });
                 setIsEditingReview(null); 
-                fetchAllData(user);
+                fetchAllData(user); 
             } else {
                 setMessage({ type: 'error', text: "Failed to update review." });
             }
@@ -200,7 +238,7 @@ export default function Dashboard() {
     };
 
     const handleDeleteReview = async (reviewId) => {
-        if (!confirm("Are you sure you want to delete this review?")) return;
+        if (!confirm("Are you sure you want to delete this review? Deleting the review allows you to submit a new one for the booking.")) return;
         
         try {
             const res = await fetch(`${API_BASE_URL}/api/reviews/${reviewId}`, { 
@@ -208,8 +246,8 @@ export default function Dashboard() {
             });
 
             if (res.ok) {
-                setMessage({ type: 'success', text: "Review deleted successfully!" });
-                fetchAllData(user);
+                setMessage({ type: 'success', text: "Review deleted successfully! You can now review the associated booking again." });
+                fetchAllData(user); 
             } else {
                 setMessage({ type: 'error', text: "Failed to delete review." });
             }
@@ -228,7 +266,7 @@ export default function Dashboard() {
             <div className="bg-gradient-to-r from-gray-900 to-gray-700 text-white pt-12 pb-16 px-6 shadow-xl">
                 <div className="container mx-auto max-w-5xl flex flex-col md:flex-row justify-between items-start gap-4">
                     <div className="flex items-center gap-4">
-                         <img 
+                        <img 
                             src={user.image} 
                             alt={user.name} 
                             className="w-16 h-16 rounded-full border-4 border-white object-cover" 
@@ -435,17 +473,12 @@ export default function Dashboard() {
                         <form onSubmit={handleUpdateReview} className="p-6 space-y-4">
                             
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Rating (1-5)</label>
-                                <input 
-                                    name="rating" 
-                                    value={editReviewForm.rating || ''} 
-                                    onChange={handleEditReviewChange} 
-                                    type="number"
-                                    min="1"
-                                    max="5"
-                                    className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-gray-900 outline-none" 
-                                    required 
+                                <label className="block text-sm font-bold text-gray-700 mb-2">Rating</label>
+                                <StarRatingInput 
+                                    rating={editReviewForm.rating} 
+                                    setRating={handleSetEditRating} 
                                 />
+                                <p className="text-xs text-gray-500 mt-1">Click stars to select rating.</p>
                             </div>
 
                             <div>
@@ -461,7 +494,17 @@ export default function Dashboard() {
                             </div>
 
                             <div className="pt-2">
-                                <button type="submit" className="w-full bg-gray-900 text-white font-bold py-3 rounded-lg hover:bg-gray-700 transition shadow-lg">Save Review Changes</button>
+                                <button 
+                                    type="submit" 
+                                    disabled={editReviewForm.rating === 0}
+                                    className={`w-full font-bold py-3 rounded-lg transition shadow-lg ${
+                                        editReviewForm.rating === 0 
+                                            ? 'bg-gray-400 cursor-not-allowed text-gray-200' 
+                                            : 'bg-gray-900 text-white hover:bg-gray-700'
+                                    }`}
+                                >
+                                    Save Review Changes
+                                </button>
                             </div>
                         </form>
                     </div>
