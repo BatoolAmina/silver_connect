@@ -10,11 +10,33 @@ export default function Home() {
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedCategory, setSelectedCategory] = useState("All");
     const [error, setError] = useState(null);
+    
+    const [user, setUser] = useState(null);
+    const [isHelper, setIsHelper] = useState(false);
+    const [isPending, setIsPending] = useState(false);
 
     useEffect(() => {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+            const parsedUser = JSON.parse(storedUser);
+            setUser(parsedUser);
+            
+            if (parsedUser.role === 'helper') {
+                setIsHelper(true);
+                fetch(`${API_BASE_URL}/api/helper-profile/${parsedUser.email}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.status === 'Pending') {
+                            setIsPending(true);
+                        }
+                    })
+                    .catch(err => console.error("Helper status check failed:", err));
+            }
+        }
+
         fetch(`${API_BASE_URL}/api/helpers`)
             .then(res => {
-                if (!res.ok) throw new Error("Failed to fetch helpers.");
+                if (!res.ok) throw new Error("Failed to fetch approved helpers.");
                 return res.json();
             })
             .then(data => { 
@@ -54,6 +76,44 @@ export default function Home() {
         return matchesCategory && matchesSearch;
     });
 
+    const renderJoinButtonArea = () => {
+        if (!user) {
+            return (
+                <Link href="/join">
+                    <button className="bg-white/10 border-2 border-white text-white font-bold px-8 py-3 rounded-full hover:bg-white hover:text-gray-900 transition backdrop-blur-sm">
+                        Become a Caregiver
+                    </button>
+                </Link>
+            );
+        }
+
+        if (isPending) {
+            return (
+                <div className="bg-yellow-500/70 border-2 border-yellow-300 text-white font-bold px-4 py-3 rounded-full backdrop-blur-sm shadow-lg text-sm">
+                    Your application is under review.
+                </div>
+            );
+        }
+
+        if (isHelper) {
+             return (
+                <Link href="/helper-dashboard">
+                    <button className="bg-white/10 border-2 border-white text-white font-bold px-8 py-3 rounded-full hover:bg-white hover:text-gray-900 transition backdrop-blur-sm">
+                        Go to Helper Dashboard
+                    </button>
+                </Link>
+            );
+        }
+        
+        return (
+            <Link href="/join">
+                <button className="bg-white/10 border-2 border-white text-white font-bold px-8 py-3 rounded-full hover:bg-white hover:text-gray-900 transition backdrop-blur-sm">
+                    Become a Caregiver
+                </button>
+            </Link>
+        );
+    };
+
     return (
         <div className="min-h-screen bg-gray-50 text-gray-800 font-sans">
             
@@ -92,11 +152,7 @@ export default function Home() {
                     </div> 
                     
                     <div className="flex justify-center gap-4">
-                        <Link href="/join">
-                            <button className="bg-white/10 border-2 border-white text-white font-bold px-8 py-3 rounded-full hover:bg-white hover:text-gray-900 transition backdrop-blur-sm">
-                                Become a Caregiver
-                            </button>
-                        </Link>
+                        {renderJoinButtonArea()}
                     </div>
                 </div>
             </header>
@@ -121,7 +177,7 @@ export default function Home() {
 
                 {loading ? (
                     <div className="text-center py-20">
-                             <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900"></div>
+                            <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900"></div>
                             <p className="mt-4 text-gray-500 font-medium">Connecting to server...</p>
                     </div>
                 ) : error ? (
@@ -133,7 +189,7 @@ export default function Home() {
                 ) : (
                     <>
                         <p className="text-gray-500 mb-6 font-semibold ml-2">
-                            Showing {filteredHelpers.length} results for &quot;{selectedCategory}&quot;
+                            Showing {filteredHelpers.length} results for "{selectedCategory}"
                         </p>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">

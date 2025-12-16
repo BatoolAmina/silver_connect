@@ -1,4 +1,4 @@
-'use client';
+'use client'; 
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
@@ -92,7 +92,11 @@ const Navbar = () => {
     useEffect(() => {
         const storedUser = localStorage.getItem('user');
         if (storedUser) {
-            setUser(JSON.parse(storedUser));
+            const parsedUser = JSON.parse(storedUser);
+            if (parsedUser.fullName && !parsedUser.name) {
+                parsedUser.name = parsedUser.fullName;
+            }
+            setUser(parsedUser);
         }
     }, []);
 
@@ -102,13 +106,30 @@ const Navbar = () => {
         window.location.href = '/login';
     };
 
-    const navLinks = [
+    let navLinks = [
+        { href: '/', label: 'Home' },
+        { href: '/about', label: 'About' },
+        { href: '/services', label: 'Services' },
+        { href: '/how-it-works', label: 'How It Works' },
+    ];
+    
+    if (user && user.role === 'admin') {
+        navLinks.push({ href: '/admin', label: "Admin Portal" });
+    } else if (user && user.role === 'helper') {
+        navLinks.push({ href: '/contact', label: 'Contact' });
+    } else {
+        navLinks.push({ href: '/contact', label: 'Contact' });
+        navLinks.push({ href: '/join', label: 'Join Team' });
+    }
+
+    const allPossibleMobileLinks = [
         { href: '/', label: 'Home' },
         { href: '/about', label: 'About' },
         { href: '/services', label: 'Services' },
         { href: '/how-it-works', label: 'How It Works' },
         { href: '/contact', label: 'Contact' },
         { href: '/join', label: 'Join Team' },
+        { href: '/admin', label: 'Admin Portal' },
     ];
 
     return (
@@ -154,18 +175,37 @@ const Navbar = () => {
                 </div>
             </div>
 
-            <div className={`overflow-hidden md:hidden transition-all duration-300 ease-in-out bg-white border-t ${isMenuOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
+            <div className={`overflow-hidden md:hidden transition-all duration-300 ease-in-out bg-white border-t ${isMenuOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
                 <div className="p-4 flex flex-col space-y-4">
-                    {navLinks.map((link) => (
-                        <Link 
-                            key={link.href} 
-                            href={link.href} 
-                            onClick={() => setIsMenuOpen(false)}
-                            className="text-gray-600 hover:text-gray-900 font-medium text-lg"
-                        >
-                            {link.label}
-                        </Link>
-                    ))}
+                    {allPossibleMobileLinks.map((link) => {
+                        const isLinkVisible = (() => {
+                            if (link.href === '/admin' && user?.role !== 'admin') return false;
+                            
+                            if (link.href === '/join' && (user?.role === 'admin' || user?.role === 'helper')) return false;
+
+                            if (link.href === '/contact' && user?.role === 'admin') return false;
+                            
+                            if (link.href === '/dashboard' || link.href === '/profile') return false;
+                            
+                            return true;
+                        })();
+
+                        if (isLinkVisible) {
+                            return (
+                                <Link 
+                                    key={link.href} 
+                                    href={link.href} 
+                                    onClick={() => setIsMenuOpen(false)}
+                                    className={`font-medium text-lg p-2 rounded-lg ${
+                                        link.href === '/admin' ? 'bg-gray-100 text-gray-900 font-bold' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                                    }`}
+                                >
+                                    {link.label}
+                                </Link>
+                            );
+                        }
+                        return null;
+                    })}
                     
                     <div className="w-full pt-4 border-t border-gray-100">
                         {!user ? (
@@ -180,15 +220,24 @@ const Navbar = () => {
                         ) : (
                             <div className="flex flex-col gap-3">
                                 <div className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
-                                    <img src={`https://i.pravatar.cc/150?u=${user.name}`} alt="User" className="w-10 h-10 rounded-full" />
+                                    <img 
+                                        src={user.image || `https://i.pravatar.cc/150?u=${user.name}`} 
+                                        alt={user.name} 
+                                        className="w-10 h-10 rounded-full object-cover" 
+                                    />
                                     <div>
                                         <p className="font-bold text-gray-800 text-sm">{user.name}</p>
                                         <p className="text-xs text-gray-500">{user.email}</p>
                                     </div>
                                 </div>
+                                
                                 <Link href="/profile" onClick={() => setIsMenuOpen(false)} className="text-center bg-gray-100 text-gray-700 font-bold py-2 rounded-lg">
                                     My Profile
                                 </Link>
+                                <Link href="/dashboard" onClick={() => setIsMenuOpen(false)} className="text-center bg-gray-100 text-gray-700 font-bold py-2 rounded-lg">
+                                    My Dashboard
+                                </Link>
+                                
                                 <button onClick={handleLogout} className="text-center bg-red-50 text-red-500 font-bold py-2 rounded-lg border border-red-100">
                                     Sign Out
                                 </button>

@@ -24,16 +24,27 @@ export default function JoinPage() {
     const [userEmail, setUserEmail] = useState('');
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
+    const [isAdmin, setIsAdmin] = useState(false);
 
     useEffect(() => {
         const storedUser = localStorage.getItem('user');
         if (storedUser) {
             const parsedUser = JSON.parse(storedUser);
+            
+            // 1. ADMIN CHECK: Redirect Admin users
+            if (parsedUser.role === 'admin') {
+                setIsAdmin(true);
+                setMessage({ type: 'info', text: "Access Restricted: Administrators manage the system and cannot apply as regular helpers." });
+                return; 
+            }
+            
+            // 2. HELPER CHECK: Redirect existing helpers
             if (parsedUser.role === 'helper') {
                 router.push('/helper-dashboard');
                 return;
             }
             
+            // 3. Authenticated User (non-admin, non-helper)
             setUserEmail(parsedUser.email);
             setFormData(prev => ({ ...prev, name: parsedUser.name || parsedUser.fullName || '' }));
             setIsAuthenticated(true);
@@ -109,12 +120,14 @@ export default function JoinPage() {
                 return 'bg-green-100 text-green-700 border-green-300';
             case 'error':
                 return 'bg-red-100 text-red-700 border-red-300';
+            case 'info':
+                return 'bg-blue-100 text-blue-700 border-blue-300';
             default:
                 return 'hidden';
         }
     };
 
-    if (!isAuthenticated) return null;
+    if (!isAuthenticated && !isAdmin) return null;
 
     const isBioInvalid = formData.bio.length < MIN_BIO_LENGTH;
 
@@ -138,8 +151,7 @@ export default function JoinPage() {
                 </p>
             </div>
             </header>
-            <br/>
-            <br/>
+            
             <div className="container mx-auto px-6 py-12 -mt-10">
                 <div className="flex flex-col lg:flex-row gap-12">
                     
@@ -171,135 +183,149 @@ export default function JoinPage() {
                             {message.text && (
                                 <div className={`p-4 mx-8 mt-4 rounded-lg border font-medium ${getMessageClasses(message.type)}`}>
                                     {message.text}
+                                    {isAdmin && (
+                                        <div className="mt-2 text-sm">
+                                            <button 
+                                                onClick={() => router.push('/admin')}
+                                                className="underline hover:no-underline font-bold"
+                                            >
+                                                Go to Admin Portal
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
-                            <form onSubmit={handleSubmit} className="p-8 space-y-6">
-                                
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                        <label htmlFor="name" className="block text-sm font-bold text-gray-700 mb-2">Full Name</label>
-                                        <input 
-                                            id="name"
-                                            name="name" 
-                                            value={formData.name}
-                                            onChange={handleChange} 
-                                            required 
-                                            className="w-full bg-white text-gray-900 border border-gray-300 rounded-lg p-3 outline-none focus:ring-2 focus:ring-gray-400 transition shadow-sm" 
-                                            placeholder="e.g. Jane Doe" 
-                                        />
-                                        <p className="text-xs text-gray-500 mt-1">This uses the name from your user account.</p>
-                                    </div>
-                                    <div>
-                                        <label htmlFor="role" className="block text-sm font-bold text-gray-700 mb-2">Role / Specialty</label>
-                                        <select 
-                                            id="role"
-                                            name="role" 
-                                            value={formData.role}
-                                            onChange={handleChange} 
-                                            className="w-full bg-white text-gray-900 border border-gray-300 rounded-lg p-3 outline-none focus:ring-2 focus:ring-gray-400 transition shadow-sm"
-                                        >
-                                            <option>Companion</option>
-                                            <option>Medical Assistant</option>
-                                            <option>Housekeeping</option>
-                                            <option>Driver</option>
-                                            <option>Physiotherapy Aid</option>
-                                            <option>Live-in Caregiver</option>
-                                            <option value="Others">Others (Please Specify)</option> 
-                                        </select>
-                                    </div>
-                                </div>
-
-                                {formData.role === 'Others' && (
-                                    <div className="animate-fadeIn">
-                                        <label htmlFor="customRole" className="block text-sm font-bold text-gray-800 mb-2">Specify Your Role</label>
-                                        <input 
-                                            id="customRole"
-                                            name="customRole" 
-                                            value={formData.customRole}
-                                            onChange={handleChange} 
-                                            required={formData.role === 'Others'}
-                                            className="w-full bg-white text-gray-900 border border-gray-300 rounded-lg p-3 outline-none focus:ring-2 focus:ring-gray-400 transition shadow-sm" 
-                                            placeholder="e.g. Pet Therapist, Yoga Instructor, Hairdresser..." 
-                                        />
-                                    </div>
-                                )}
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                        <label htmlFor="price" className="block text-sm font-bold text-gray-700 mb-2">Hourly Rate</label>
-                                        <div className="relative">
-                                            <span className="absolute left-3 top-3 text-gray-500">$</span>
+                            {/* Only render form if user is NOT admin */}
+                            {!isAdmin && (
+                                <form onSubmit={handleSubmit} className="p-8 space-y-6">
+                                    
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div>
+                                            <label htmlFor="name" className="block text-sm font-bold text-gray-700 mb-2">Full Name</label>
                                             <input 
-                                                id="price"
-                                                name="price" 
-                                                value={formData.price}
+                                                id="name"
+                                                name="name" 
+                                                value={formData.name}
                                                 onChange={handleChange} 
                                                 required 
-                                                className="w-full bg-white text-gray-900 border border-gray-300 rounded-lg p-3 pl-8 outline-none focus:ring-2 focus:ring-gray-400 transition shadow-sm" 
-                                                placeholder="25/hr" 
+                                                className="w-full bg-gray-100 text-gray-900 border border-gray-300 rounded-lg p-3 outline-none transition shadow-sm cursor-not-allowed" 
+                                                placeholder="e.g. Jane Doe" 
+                                                disabled 
+                                            />
+                                            <p className="text-xs text-gray-500 mt-1">This uses the name from your user account.</p>
+                                        </div>
+                                        <div>
+                                            <label htmlFor="role" className="block text-sm font-bold text-gray-700 mb-2">Role / Specialty</label>
+                                            <select 
+                                                id="role"
+                                                name="role" 
+                                                value={formData.role}
+                                                onChange={handleChange} 
+                                                className="w-full bg-white text-gray-900 border border-gray-300 rounded-lg p-3 outline-none focus:ring-2 focus:ring-gray-400 transition shadow-sm"
+                                            >
+                                                <option>Companion</option>
+                                                <option>Medical Assistant</option>
+                                                <option>Housekeeping</option>
+                                                <option>Driver</option>
+                                                <option>Physiotherapy Aid</option>
+                                                <option>Live-in Caregiver</option>
+                                                <option value="Others">Others (Please Specify)</option> 
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    {formData.role === 'Others' && (
+                                        <div className="animate-fadeIn">
+                                            <label htmlFor="customRole" className="block text-sm font-bold text-gray-800 mb-2">Specify Your Role</label>
+                                            <input 
+                                                id="customRole"
+                                                name="customRole" 
+                                                value={formData.customRole}
+                                                onChange={handleChange} 
+                                                required={formData.role === 'Others'}
+                                                className="w-full bg-white text-gray-900 border border-gray-300 rounded-lg p-3 outline-none focus:ring-2 focus:ring-gray-400 transition shadow-sm" 
+                                                placeholder="e.g. Pet Therapist, Yoga Instructor, Hairdresser..." 
+                                            />
+                                        </div>
+                                    )}
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div>
+                                            <label htmlFor="price" className="block text-sm font-bold text-gray-700 mb-2">Hourly Rate</label>
+                                            <div className="relative">
+                                                <span className="absolute left-3 top-3 text-gray-500">$</span>
+                                                <input 
+                                                    id="price"
+                                                    name="price" 
+                                                    value={formData.price}
+                                                    onChange={handleChange} 
+                                                    required 
+                                                    className="w-full bg-white text-gray-900 border border-gray-300 rounded-lg p-3 pl-8 outline-none focus:ring-2 focus:ring-gray-400 transition shadow-sm" 
+                                                    placeholder="25/hr" 
+                                                />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label htmlFor="location" className="block text-sm font-bold text-gray-700 mb-2">City / Location</label>
+                                            <input 
+                                                id="location"
+                                                name="location" 
+                                                value={formData.location}
+                                                onChange={handleChange} 
+                                                required 
+                                                className="w-full bg-white text-gray-900 border border-gray-300 rounded-lg p-3 outline-none focus:ring-2 focus:ring-gray-400 transition shadow-sm" 
+                                                placeholder="e.g. Downtown" 
                                             />
                                         </div>
                                     </div>
+
                                     <div>
-                                        <label htmlFor="location" className="block text-sm font-bold text-gray-700 mb-2">City / Location</label>
+                                        <label htmlFor="experience" className="block text-sm font-bold text-gray-700 mb-2">Years of Experience</label>
                                         <input 
-                                            id="location"
-                                            name="location" 
-                                            value={formData.location}
+                                            id="experience"
+                                            name="experience" 
+                                            value={formData.experience}
                                             onChange={handleChange} 
                                             required 
                                             className="w-full bg-white text-gray-900 border border-gray-300 rounded-lg p-3 outline-none focus:ring-2 focus:ring-gray-400 transition shadow-sm" 
-                                            placeholder="e.g. Downtown" 
+                                            placeholder="e.g. 3 Years in Elderly Care" 
                                         />
                                     </div>
-                                </div>
 
-                                <div>
-                                    <label htmlFor="experience" className="block text-sm font-bold text-gray-700 mb-2">Years of Experience</label>
-                                    <input 
-                                        id="experience"
-                                        name="experience" 
-                                        value={formData.experience}
-                                        onChange={handleChange} 
-                                        required 
-                                        className="w-full bg-white text-gray-900 border border-gray-300 rounded-lg p-3 outline-none focus:ring-2 focus:ring-gray-400 transition shadow-sm" 
-                                        placeholder="e.g. 3 Years in Elderly Care" 
-                                    />
-                                </div>
-
-                                <div>
-                                    <label htmlFor="bio" className="block text-sm font-bold text-gray-700 mb-2">About You (Bio)</label>
-                                    <textarea 
-                                        id="bio"
-                                        name="bio" 
-                                        value={formData.bio}
-                                        onChange={handleChange} 
-                                        required 
-                                        rows="4" 
-                                        className={`w-full bg-white text-gray-900 border ${isBioInvalid ? 'border-red-500' : 'border-gray-300'} rounded-lg p-3 outline-none focus:ring-2 focus:ring-gray-400 transition shadow-sm`}
-                                        placeholder="Write a short introduction about yourself. Why do you love caregiving?"
-                                    ></textarea>
-                                    <div className="flex justify-between items-center mt-2">
-                                        <p className={`text-xs ${isBioInvalid ? 'text-red-500 font-semibold' : 'text-gray-500'}`}>
-                                            Minimum required: {MIN_BIO_LENGTH} characters.
-                                        </p>
-                                        <p className="text-xs text-gray-500 text-right">
-                                            {formData.bio.length} / {MIN_BIO_LENGTH}
-                                        </p>
+                                    <div>
+                                        <label htmlFor="bio" className="block text-sm font-bold text-gray-700 mb-2">About You (Bio)</label>
+                                        <textarea 
+                                            id="bio"
+                                            name="bio" 
+                                            value={formData.bio}
+                                            onChange={handleChange} 
+                                            required 
+                                            rows="4" 
+                                            className={`w-full bg-white text-gray-900 border ${isBioInvalid ? 'border-red-500' : 'border-gray-300'} rounded-lg p-3 outline-none focus:ring-2 focus:ring-gray-400 transition shadow-sm`}
+                                            placeholder="Write a short introduction about yourself. Why do you love caregiving?"
+                                        ></textarea>
+                                        <div className="flex justify-between items-center mt-2">
+                                            <p className={`text-xs ${isBioInvalid ? 'text-red-500 font-semibold' : 'text-gray-500'}`}>
+                                                Minimum required: {MIN_BIO_LENGTH} characters.
+                                            </p>
+                                            <p className="text-xs text-gray-500 text-right">
+                                                {formData.bio.length} / {MIN_BIO_LENGTH}
+                                            </p>
+                                        </div>
                                     </div>
-                                </div>
 
-                                <button 
-                                    type="submit" 
-                                    disabled={isSubmitting || isBioInvalid}
-                                    className={`w-full text-white font-bold py-4 rounded-lg shadow-lg text-lg transition transform hover:-translate-y-0.5 ${
-                                        isSubmitting || isBioInvalid ? 'bg-gray-400 cursor-not-allowed' : 'bg-gray-900 hover:bg-black active:bg-gray-700'
-                                    }`}
-                                >
-                                    {isSubmitting ? 'Submitting Application...' : 'Submit Application'}
-                                </button>
-                            </form>
+                                    <button 
+                                        type="submit" 
+                                        disabled={isSubmitting || isBioInvalid}
+                                        className={`w-full text-white font-bold py-4 rounded-lg shadow-lg text-lg transition transform hover:-translate-y-0.5 ${
+                                            isSubmitting || isBioInvalid ? 'bg-gray-400 cursor-not-allowed' : 'bg-gray-900 hover:bg-black active:bg-gray-700'
+                                        }`}
+                                    >
+                                        {isSubmitting ? 'Submitting Application...' : 'Submit Application'}
+                                    </button>
+                                </form>
+                            )}
                         </div>
                     </div>
                 </div>

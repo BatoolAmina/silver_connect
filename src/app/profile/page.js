@@ -12,11 +12,15 @@ export default function ProfilePage() {
     const [isSaving, setIsSaving] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
 
+    // State for image handling
+    const [selectedImageFile, setSelectedImageFile] = useState(null);
+    const [imageURLInput, setImageURLInput] = useState(''); // Holds the URL currently in the text input
+
     const [formData, setFormData] = useState({
         name: '',
         email: '',
         role: '',
-        image: '',
+        image: '', // This will hold the confirmed URL
         phone: '',
         address: '',
         bio: ''
@@ -40,6 +44,7 @@ export default function ProfilePage() {
         };
         
         setUser(userData);
+        setImageURLInput(validImage);
         setFormData({
             name: validName,
             email: userData.email || '',
@@ -58,8 +63,47 @@ export default function ProfilePage() {
 
     const handleRandomizeAvatar = () => {
         const randomId = Math.floor(Math.random() * 1000);
-        setFormData({ ...formData, image: `https://i.pravatar.cc/150?img=${randomId}` });
+        const newUrl = `https://i.pravatar.cc/150?img=${randomId}`;
+        setImageURLInput(newUrl);
+        setFormData({ ...formData, image: newUrl });
+        setSelectedImageFile(null);
     };
+    
+    const handleFileChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setSelectedImageFile(file);
+            setImageURLInput(''); // Clear URL input when a file is selected
+            setFormData({ ...formData, image: URL.createObjectURL(file) }); // Show local preview
+        }
+        setMessage({ type: '', text: '' });
+    };
+    
+    // Function to handle image upload separately
+    const uploadImage = async () => {
+        const dataToSend = new FormData();
+        dataToSend.append('image', selectedImageFile);
+
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/users/${user.email}/image-upload`, {
+                method: 'PUT',
+                body: dataToSend
+            });
+            
+            const data = await res.json();
+            
+            if (res.ok) {
+                return { success: true, newImageUrl: data.user.image };
+            } else {
+                return { success: false, message: data.detailedError || data.error || data.message || 'Image upload failed.' };
+            }
+
+        } catch (err) {
+            console.error(err);
+            return { success: false, message: 'Server error during image file upload.' };
+        }
+    };
+
 
     const handleSave = async (e) => {
         e.preventDefault();
@@ -67,40 +111,65 @@ export default function ProfilePage() {
         setMessage({ type: '', text: '' });
 
         try {
-            const payload = {
+            let finalImageUrl = imageURLInput; // CRITICAL: Start with the URL input value.
+            
+            // 1. Handle Image Upload/URL Update
+            if (selectedImageFile) {
+                const uploadResult = await uploadImage();
+                
+                if (!uploadResult.success) {
+                    return setMessage({ type: 'error', text: `Image Error: ${uploadResult.message}` });
+                }
+                finalImageUrl = uploadResult.newImageUrl;
+            } else if (imageURLInput !== user.image) {
+                // If no file was selected, but the URL input has changed (manual paste or randomize),
+                // the finalImageUrl is already set to imageURLInput at the start of this function.
+                // We just need to make sure the image property in formData is updated for the userPayload
+                finalImageUrl = imageURLInput;
+            }
+
+            // 2. Prepare the payload for the User update (text fields + final image URL)
+            const userPayload = {
                 fullName: formData.name,
-                image: formData.image,
+                image: finalImageUrl, // Use the finalized URL
                 phone: formData.phone,
                 address: formData.address,
                 bio: formData.bio
             };
 
-            const res = await fetch(`${API_BASE_URL}/api/users/${user.email}`, {
+            // 3. Update the main User profile (JSON update)
+            const userRes = await fetch(`${API_BASE_URL}/api/users/${user.email}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(userPayload)
             });
 
-            const data = await res.json();
+            const userData = await userRes.json();
 
-            if (res.ok) {
-                const updatedStorageUser = { 
-                    ...data.user, 
-                    name: data.user.name || data.user.fullName
-                };
-                
-                localStorage.setItem('user', JSON.stringify(updatedStorageUser));
-                
-                setUser(updatedStorageUser);
-                setIsEditing(false);
-                setMessage({ type: 'success', text: "✅ Profile updated successfully! Reloading..." });
-                setTimeout(() => window.location.reload(), 1500); 
-            } else {
-                setMessage({ type: 'error', text: "Failed to update profile: " + data.message });
+            if (!userRes.ok) {
+                return setMessage({ type: 'error', text: `Failed to update Profile Text: ${userData.message || 'Unknown error.'}` });
             }
+
+            // 4. Finalize and update session
+            const updatedStorageUser = { 
+                ...userData.user, 
+                name: userData.user.name || userData.user.fullName
+            };
+            
+            localStorage.setItem('user', JSON.stringify(updatedStorageUser));
+            
+            setUser(updatedStorageUser);
+            setIsEditing(false);
+            setSelectedImageFile(null);
+            
+            let successMessage = "✅ Profile updated successfully! Reloading...";
+            
+            setMessage({ type: 'success', text: successMessage });
+            setTimeout(() => window.location.reload(), 1500); 
+
         } catch (err) {
             console.error(err);
-            setMessage({ type: 'error', text: "Server error. Check backend connection." });
+            setMessage({ type: 'error', text: "Server error during profile update. Check connection/logs." });
         } finally {
             setIsSaving(false);
         }
@@ -201,13 +270,14 @@ export default function ProfilePage() {
                                 <button 
                                     onClick={() => {
                                         setIsEditing(!isEditing);
-                                        // Reset form data if canceling edit
                                         if (isEditing) {
                                             setFormData({ 
                                                 ...user, 
                                                 name: user.name,
                                                 image: user.image 
                                             });
+                                            setImageURLInput(user.image);
+                                            setSelectedImageFile(null);
                                         }
                                         setMessage({ type: '', text: '' });
                                     }}
@@ -225,13 +295,34 @@ export default function ProfilePage() {
                                 
                                 {isEditing && (
                                     <div className="bg-gray-50 p-6 rounded-2xl border border-gray-200 animate-fadeIn mb-6">
-                                        <label className="block text-sm font-bold text-gray-900 mb-2">Profile Picture</label>
+                                        
+                                        {/* File Upload Option */}
+                                        <label className="block text-sm font-bold text-gray-900 mb-2">Upload New Picture (File)</label>
+                                        <input 
+                                            type="file" 
+                                            name="imageFile" 
+                                            accept="image/*"
+                                            onChange={handleFileChange}
+                                            className="w-full border border-gray-300 rounded-xl p-2.5 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-200 file:text-gray-900 hover:file:bg-gray-300" 
+                                        />
+                                        {selectedImageFile && (
+                                            <p className="text-xs text-green-500 mt-1">File selected: {selectedImageFile.name}</p>
+                                        )}
+                                        
+                                        <p className="text-center text-gray-400 font-semibold my-4">-- OR --</p>
+
+                                        {/* URL Input Option */}
+                                        <label className="block text-sm font-bold text-gray-900 mb-2">Paste Image URL</label>
                                         <div className="flex gap-3">
                                             <input 
                                                 type="text" 
-                                                name="image" 
-                                                value={formData.image} 
-                                                onChange={handleChange} 
+                                                name="imageURLInput" 
+                                                value={imageURLInput} 
+                                                onChange={(e) => {
+                                                    setImageURLInput(e.target.value);
+                                                    setSelectedImageFile(null); // Clear file choice if user edits URL
+                                                    setFormData({ ...formData, image: e.target.value });
+                                                }} 
                                                 placeholder="Paste Image URL"
                                                 className="flex-grow bg-white border border-gray-300 text-gray-900 rounded-xl p-3 text-sm focus:ring-2 focus:ring-gray-400 outline-none"
                                             />

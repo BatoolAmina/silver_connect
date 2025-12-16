@@ -30,6 +30,8 @@ export default function HelperDashboard() {
     const [isEditing, setIsEditing] = useState(false);
     const [isApproved, setIsApproved] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
+    const [selectedImage, setSelectedImage] = useState(null);
+    const [imageURL, setImageURL] = useState('');
 
     const [formData, setFormData] = useState({
         role: '', 
@@ -47,7 +49,6 @@ export default function HelperDashboard() {
             if (!profileRes.ok) {
                 parsedUser.role = 'user';
                 localStorage.setItem('user', JSON.stringify(parsedUser));
-                console.warn("Helper profile not found. Redirecting to User Dashboard.");
                 router.push('/dashboard');
                 return;
             }
@@ -71,6 +72,8 @@ export default function HelperDashboard() {
                 bio: profileData.bio || '',
                 description: profileData.description || ''
             });
+            setImageURL(profileData.image || '');
+
 
             const bookingsRes = await fetch(`${API_BASE_URL}/api/bookings`);
             const allBookings = await bookingsRes.json();
@@ -102,7 +105,6 @@ export default function HelperDashboard() {
         let parsedUser = JSON.parse(storedUser);
         
         if (parsedUser.role !== 'helper') {
-            console.warn("Access Denied. Redirecting to User Dashboard.");
             router.push('/dashboard');
             return;
         }
@@ -113,7 +115,6 @@ export default function HelperDashboard() {
             if (updatedStoredUser) {
                 const updatedParsedUser = JSON.parse(updatedStoredUser);
                 if (updatedParsedUser.role !== 'helper') {
-                    console.warn("Helper profile removed by Admin. Redirecting.");
                     clearInterval(roleCheckInterval);
                     router.push('/dashboard');
                 }
@@ -155,17 +156,31 @@ export default function HelperDashboard() {
         e.preventDefault();
         setIsSaving(true);
         setMessage({ type: '', text: '' });
+        
+        const dataToSend = new FormData();
+        
+        Object.keys(formData).forEach(key => {
+            dataToSend.append(key, formData[key]);
+        });
+        
+        if (selectedImage) {
+            dataToSend.append('image', selectedImage);
+        } else if (imageURL) {
+            dataToSend.append('imageURL', imageURL);
+        }
 
         try {
             const res = await fetch(`${API_BASE_URL}/api/helper-profile/${user.email}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
+                body: dataToSend
             });
+            
             if (res.ok) {
                 const updatedProfile = await res.json();
                 setHelperProfile(updatedProfile);
                 setIsEditing(false);
+                setSelectedImage(null);
+                setImageURL(updatedProfile.image || '');
 
                 const currentUser = JSON.parse(localStorage.getItem('user'));
                 if (currentUser) {
@@ -173,14 +188,16 @@ export default function HelperDashboard() {
                         ...currentUser, 
                         bio: updatedProfile.bio || currentUser.bio,
                         address: updatedProfile.location || currentUser.address, 
+                        image: updatedProfile.image || currentUser.image 
                     };
                     localStorage.setItem('user', JSON.stringify(updatedUserSession));
                 }
                 
-                setMessage({ type: 'success', text: "✅ Public profile updated successfully!" });
+                setMessage({ type: 'success', text: "✅ Public profile and image updated successfully!" });
 
             } else {
-                setMessage({ type: 'error', text: "Failed to update profile." });
+                const errorData = await res.json();
+                setMessage({ type: 'error', text: `Failed to update profile: ${errorData.detailedError || errorData.message || 'Unknown server error.'}` });
             }
         } catch (err) { 
             console.error(err); 
@@ -330,7 +347,6 @@ export default function HelperDashboard() {
                                 <div>
                                     <h3 className="font-extrabold text-xl text-gray-900">{helperProfile.name}</h3>
                                     <p className="text-xs text-gray-500">Public visibility details</p>
-                                    {/* Optional: Display Rating */}
                                     {helperProfile.rating > 0 && (
                                         <div className="flex items-center mt-1">
                                             <StarRating rating={helperProfile.rating} />
@@ -341,7 +357,7 @@ export default function HelperDashboard() {
                             </div>
                             
                             <button 
-                                onClick={() => setIsEditing(!isEditing)}
+                                onClick={() => { setIsEditing(!isEditing); setSelectedImage(null); }}
                                 className={`text-sm font-bold px-3 py-1 rounded-lg transition shrink-0 ${
                                     isEditing 
                                     ? 'bg-red-500 text-white hover:bg-red-600' 
@@ -365,6 +381,35 @@ export default function HelperDashboard() {
 
                         {isEditing && (
                             <form onSubmit={handleSave} className="p-8 space-y-5">
+                                
+                                <div className='space-y-4 pt-4 border-t border-gray-100'>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Upload New Profile Picture (File)</label>
+                                    <input 
+                                        type="file" 
+                                        name="imageFile" 
+                                        accept="image/*"
+                                        onChange={(e) => { setSelectedImage(e.target.files[0]); setImageURL(''); }}
+                                        className="w-full border border-gray-300 rounded-lg p-2.5 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-50 file:text-gray-900 hover:file:bg-gray-100" 
+                                    />
+                                    {selectedImage && (
+                                        <p className="text-xs text-green-500 mt-1">File selected: {selectedImage.name}</p>
+                                    )}
+                                    
+                                    <p className="text-center text-gray-400 font-semibold my-2">-- OR --</p>
+
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Profile Picture URL</label>
+                                    <input 
+                                        type="text" 
+                                        name="imageURL" 
+                                        value={imageURL}
+                                        onChange={(e) => { setImageURL(e.target.value); setSelectedImage(null); }}
+                                        placeholder="Paste image URL (e.g., from LinkedIn or Google Drive)"
+                                        className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-gray-900 outline-none" 
+                                    />
+                                    {imageURL && !selectedImage && (
+                                        <p className="text-xs text-blue-500 mt-1">Using URL: {imageURL.substring(0, 50)}...</p>
+                                    )}
+                                </div>
                                 
                                 <div className='space-y-4'>
                                     <div>

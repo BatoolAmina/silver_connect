@@ -18,6 +18,7 @@ export default function AdminPage() {
     const [bookings, setBookings] = useState([]);
     const [messages, setMessages] = useState([]);
     const [helpers, setHelpers] = useState([]);
+    const [reviews, setReviews] = useState([]);
     const [adminEmail, setAdminEmail] = useState('');
     const [activeTab, setActiveTab] = useState('users');
     const [loading, setLoading] = useState(true);
@@ -25,6 +26,9 @@ export default function AdminPage() {
 
     const [editingHelper, setEditingHelper] = useState(null);
     const [editForm, setEditForm] = useState({});
+    
+    const [editingReview, setEditingReview] = useState(null);
+    const [editReviewForm, setEditReviewForm] = useState({});
 
     useEffect(() => {
         const storedUser = localStorage.getItem('user');
@@ -48,17 +52,19 @@ export default function AdminPage() {
 
     const fetchData = async () => {
         try {
-            const [resUsers, resBookings, resMessages, resHelpers] = await Promise.all([
+            const [resUsers, resBookings, resMessages, resHelpers, resReviews] = await Promise.all([
                 fetch(`${API_BASE_URL}/api/users`),
                 fetch(`${API_BASE_URL}/api/bookings`),
                 fetch(`${API_BASE_URL}/api/contact`),
-                fetch(`${API_BASE_URL}/api/admin/helpers`) 
+                fetch(`${API_BASE_URL}/api/admin/helpers`),
+                fetch(`${API_BASE_URL}/api/reviews`)
             ]);
 
             if (resUsers.ok) setUsers(await resUsers.json());
             if (resBookings.ok) setBookings(await resBookings.json());
             if (resMessages.ok) setMessages(await resMessages.json());
             if (resHelpers.ok) setHelpers(await resHelpers.json());
+            if (resReviews.ok) setReviews(await resReviews.json());
             
             setLoading(false);
         } catch (error) {
@@ -93,7 +99,7 @@ export default function AdminPage() {
                     }
                 }
                 
-                fetchData(); 
+                fetchData();
             } else {
                 const error = await res.json();
                 alert(`Failed to update role: ${error.message || res.statusText}`);
@@ -136,7 +142,7 @@ export default function AdminPage() {
         if (res.ok) {
             alert(`User ${email} deleted successfully.`);
             setUsers(users.filter(u => u.email !== email));
-            fetchData(); 
+            fetchData();
         } else {
             alert("Failed to delete user.");
         }
@@ -156,7 +162,6 @@ export default function AdminPage() {
     };
 
     const handleDeleteHelper = async (id) => {
-        // FIXED QUOTE ERROR: ' to &apos;
         if(!confirm("Permanently delete this helper profile? This reverts the user's role to 'user'.")) return;
         
         const res = await fetch(`${API_BASE_URL}/api/helpers/${id}`, { method: 'DELETE' });
@@ -243,6 +248,59 @@ export default function AdminPage() {
             alert("Server error adding helper.");
         }
     };
+
+    const handleDeleteReview = async (reviewId) => {
+        if (!confirm("Permanently delete this review?")) return;
+        
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/reviews/${reviewId}`, { 
+                method: 'DELETE' 
+            });
+
+            if (res.ok) {
+                alert("Review deleted successfully.");
+                fetchData();
+            } else {
+                alert("Failed to delete review.");
+            }
+        } catch (error) {
+            console.error(error);
+            alert("Server error deleting review.");
+        }
+    };
+
+    const openEditReviewModal = (review) => {
+        setEditingReview(review);
+        setEditReviewForm({ 
+            rating: review.rating, 
+            reviewText: review.reviewText 
+        });
+    };
+
+    const handleEditReviewChange = (e) => {
+        setEditReviewForm({ ...editReviewForm, [e.target.name]: e.target.value });
+    };
+
+    const handleUpdateReview = async (e) => {
+        e.preventDefault();
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/reviews/${editingReview._id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(editReviewForm)
+            });
+            
+            if (res.ok) {
+                alert("✅ Review updated successfully!");
+                setEditingReview(null); 
+                fetchData();
+            } else {
+                alert("Failed to update review.");
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    };
     
     if (!isAuthorized) return null;
     if (loading) return <div className="min-h-screen bg-gray-100 flex items-center justify-center text-gray-500 font-bold">Loading Admin Portal...</div>;
@@ -270,6 +328,11 @@ export default function AdminPage() {
                     <button onClick={() => setActiveTab('helpers')} className={`w-full text-left px-4 py-3 rounded-xl transition flex justify-between items-center ${activeTab === 'helpers' ? 'bg-gray-800 text-white shadow-md border border-gray-700' : 'text-gray-400 hover:bg-gray-800/50 hover:text-white'}`}>
                         <span className="font-bold">🩺 Helpers</span>
                         <span className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full">{helpers.length}</span>
+                    </button>
+                    
+                    <button onClick={() => setActiveTab('reviews')} className={`w-full text-left px-4 py-3 rounded-xl transition flex justify-between items-center ${activeTab === 'reviews' ? 'bg-gray-800 text-white shadow-md border border-gray-700' : 'text-gray-400 hover:bg-gray-800/50 hover:text-white'}`}>
+                        <span className="font-bold">⭐ Reviews</span>
+                        <span className="bg-gray-700 text-white text-xs px-2 py-0.5 rounded-full">{reviews.length}</span>
                     </button>
 
                     <button onClick={() => setActiveTab('messages')} className={`w-full text-left px-4 py-3 rounded-xl transition flex justify-between items-center ${activeTab === 'messages' ? 'bg-gray-800 text-white shadow-md border border-gray-700' : 'text-gray-400 hover:bg-gray-800/50 hover:text-white'}`}>
@@ -468,6 +531,59 @@ export default function AdminPage() {
                         </div>
                     </>
                 )}
+                
+                {activeTab === 'reviews' && (
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left">
+                                <thead className="bg-gray-50 border-b border-gray-200">
+                                    <tr>
+                                        <th className="p-5 font-bold text-gray-700 text-sm uppercase tracking-wider">Helper / Reviewer</th>
+                                        <th className="p-5 font-bold text-gray-700 text-sm uppercase tracking-wider">Rating</th>
+                                        <th className="p-5 font-bold text-gray-700 text-sm uppercase tracking-wider">Review Text</th>
+                                        <th className="p-5 font-bold text-gray-700 text-sm uppercase tracking-wider text-right">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {reviews.map((r) => (
+                                        <tr key={r._id} className="hover:bg-gray-50 transition">
+                                            <td className="p-5 text-sm">
+                                                <p className="font-bold text-gray-900">{r.reviewerName}</p>
+                                                <p className="text-xs text-gray-500 mt-1">Helper ID: {r.helperId.substring(0, 8)}...</p>
+                                                <p className="text-xs text-gray-500">Booking ID: {r.bookingId}</p>
+                                            </td>
+                                            <td className="p-5">
+                                                <span className="font-extrabold text-lg text-amber-500">
+                                                    {r.rating} <span className="text-gray-400">/ 5</span>
+                                                </span>
+                                            </td>
+                                            <td className="p-5 text-sm text-gray-700 max-w-sm">
+                                                {r.reviewText}
+                                                <p className="text-xs text-gray-400 mt-1">{new Date(r.timestamp).toLocaleDateString()}</p>
+                                            </td>
+                                            <td className="p-5 text-right">
+                                                <button 
+                                                    onClick={() => openEditReviewModal(r)}
+                                                    className="text-blue-600 hover:text-blue-800 font-bold text-sm bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition mr-2"
+                                                >
+                                                    Edit
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleDeleteReview(r._id)}
+                                                    className="text-red-500 hover:text-red-700 font-bold text-sm bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition"
+                                                >
+                                                    Delete
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {reviews.length === 0 && <tr><td colSpan="4" className="p-8 text-center text-gray-400">No reviews found.</td></tr>}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+
 
                 {activeTab === 'messages' && (
                     <div className="grid grid-cols-1 gap-4">
@@ -541,6 +657,7 @@ export default function AdminPage() {
                 </div>
             )}
 
+            {/* Helper Edit Modal */}
             {editingHelper && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fadeIn">
@@ -588,6 +705,51 @@ export default function AdminPage() {
 
                             <div className="pt-2">
                                 <button type="submit" className="w-full bg-gray-900 text-white font-bold py-3 rounded-lg hover:bg-gray-700 transition shadow-lg">Save Changes</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+            
+            {/* Review Edit Modal */}
+            {editingReview && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fadeIn">
+                        <div className="bg-gray-900 px-6 py-4 flex justify-between items-center text-white">
+                            <h3 className="font-bold text-lg">Edit Review by: {editingReview.reviewerName}</h3>
+                            <button onClick={() => setEditingReview(null)} className="text-white hover:text-gray-300 font-bold text-xl">×</button>
+                        </div>
+                        
+                        <form onSubmit={handleUpdateReview} className="p-6 space-y-4">
+                            
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Rating (1-5)</label>
+                                <input 
+                                    name="rating" 
+                                    value={editReviewForm.rating || ''} 
+                                    onChange={handleEditReviewChange} 
+                                    type="number"
+                                    min="1"
+                                    max="5"
+                                    className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-gray-900 outline-none" 
+                                    required 
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Review Text</label>
+                                <textarea 
+                                    name="reviewText" 
+                                    value={editReviewForm.reviewText || ''} 
+                                    onChange={handleEditReviewChange} 
+                                    rows="5" 
+                                    className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-gray-900 outline-none" 
+                                    required 
+                                />
+                            </div>
+
+                            <div className="pt-2">
+                                <button type="submit" className="w-full bg-gray-900 text-white font-bold py-3 rounded-lg hover:bg-gray-700 transition shadow-lg">Save Review Changes</button>
                             </div>
                         </form>
                     </div>
