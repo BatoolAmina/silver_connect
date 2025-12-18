@@ -190,7 +190,7 @@ export default function Dashboard() {
     );
 
     return (
-        <div className="min-h-screen bg-gray-50 font-sans text-slate-900 pb-20">
+        <div className="min-h-screen bg-gray-200 font-sans text-slate-900 pb-20">
             <header className="bg-slate-900 text-white pt-24 pb-36 px-6 relative overflow-hidden">
                 <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8 relative z-10">
                     <div className="flex items-center gap-8">
@@ -232,7 +232,6 @@ export default function Dashboard() {
                     ))}
                 </div>
 
-                {/* --- BOOKINGS TAB --- */}
                 {activeTab === 'bookings' && (
                     <div className="grid grid-cols-1 gap-6">
                         {bookings.length === 0 ? (
@@ -282,7 +281,6 @@ export default function Dashboard() {
                     </div>
                 )}
 
-                {/* --- REVIEWS TAB --- */}
                 {activeTab === 'reviews' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         {myReviews.length === 0 ? (
@@ -318,7 +316,6 @@ export default function Dashboard() {
                     </div>
                 )}
             </div>
-            {/* Preserving edit modal logic */}
             {isEditingReview && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-6">
                     <div className="bg-white rounded-[4rem] shadow-2xl w-full max-w-xl overflow-hidden animate-in zoom-in duration-300">
