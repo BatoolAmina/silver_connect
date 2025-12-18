@@ -27,7 +27,7 @@ SilverConnect functions as a **central registry** where:
 
 > SilverConnect treats caregiving with the same precision as a modern enterprise SaaS system.
 
-## 🏗️ Tech Stack
+## Tech Stack
 ### Frontend
 - **Framework:** Next.js 14 (App Router)
 - **Styling:** TailwindCSS
@@ -38,14 +38,11 @@ SilverConnect functions as a **central registry** where:
 - **Database:** MongoDB Atlas
 - **Authentication:** JWT
 
-## ⚙️ Environment Configuration
 
 ### Frontend Environment (`.env.local`)
 ```env
 NEXT_PUBLIC_API_BASE_URL=https://backend-minor-project.onrender.com
 ```
-
-## 🛠️ Local Setup (Frontend)
 
 ### Clone the repository
 ```bash
@@ -53,13 +50,13 @@ git clone https://github.com/BatoolAmina/silver_connect.git
 cd silver_connect
 ```
 
-## Install Dependencies
+### Install Dependencies
 
 ```bash
 npm install
 ```
 
-## Start the Development Server
+### Start the Development Server
 
 ```bash
 npm run dev
