@@ -63,7 +63,7 @@ export default function AboutPage() {
                         </div>
                         
                         <div className="w-full lg:w-1/2 space-y-6">
-                            <h2 className="text-3xl font-black text-slate-950 tracking-tighter uppercase italic leading-none">Vetted Care,<br/>Optimized.</h2>
+                            <h2 className="text-2xl font-black text-slate-950 tracking-tighter uppercase italic leading-none">Vetted Care,<br/>Optimized.</h2>
                             <p className="text-slate-500 leading-relaxed text-[13px] font-medium">
                                 Finding reliable care shouldn't be a logistical burden. We identified a critical system failure where families struggle to locate verified, high-standard specialists available for immediate deployment.
                             </p>
@@ -104,23 +104,34 @@ export default function AboutPage() {
                     </div>
 
                     <div className="lg:col-span-2 bg-white rounded-[2.5rem] border border-slate-100 p-10 flex flex-col justify-center">
-                        <span className="text-[8px] font-black uppercase tracking-[0.4em] text-slate-300 mb-4 block italic">Executive Statement</span>
-                        <p className="text-slate-700 italic text-[18px] font-medium leading-relaxed tracking-tight">
+                        <span className="text-[9px] font-black uppercase tracking-[0.4em] text-slate-500 mb-4 block italic">Executive Statement</span>
+                        <p className="text-slate-700 italic text-[14px] font-medium leading-relaxed tracking-tight">
                             "SilverConnect was engineered to prove that high-end technology must serve our most vulnerable populations. Our elders do not just require service; they require a secure, verified connection to community support."
                         </p>
                         <div className="w-8 h-1 bg-slate-950 mt-8 rounded-full"></div>
                     </div>
                 </section>
 
-                <section className="bg-white rounded-[3rem] py-16 text-center border border-slate-100 relative overflow-hidden shadow-sm">
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full pointer-events-none opacity-[0.02]">
-                        <h1 className="text-[12rem] font-black tracking-tighter leading-none">CONNECT</h1>
+                <section className="bg-slate-950 rounded-[2.5rem] py-12 text-center border border-white/5 relative overflow-hidden shadow-2xl">
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none opacity-[0.03]">
+                        <h1 className="text-[10rem] md:text-[15rem] font-black text-white tracking-tighter leading-none italic">
+                            CONNECT
+                        </h1>
                     </div>
                     
                     <div className="relative z-10">
-                        <h2 className="text-2xl font-black text-slate-950 mb-6 uppercase tracking-tight italic">Initiate Session Today.</h2>
+                        <div className="flex items-center justify-center gap-2 mb-4">   
+                            <h2 className="text-xl font-black text-white uppercase tracking-tighter italic">
+                                Initiate Session Today.
+                            </h2>
+                        </div>
+                        
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.3em] mb-8 max-w-xs mx-auto opacity-70">
+                            Establish your digital care registry node.
+                        </p>
+
                         <Link href="/profile">
-                            <button className="bg-slate-950 text-white font-black px-10 py-4 rounded-xl hover:bg-black transition-all shadow-2xl uppercase tracking-widest text-[10px] active:scale-95">
+                            <button className="bg-white text-slate-950 font-black px-10 py-4 rounded-xl hover:bg-slate-200 transition-all shadow-xl uppercase tracking-widest text-[9px] active:scale-95">
                                 Create Identity Log
                             </button>
                         </Link>
