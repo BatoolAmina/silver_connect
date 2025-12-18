@@ -3,11 +3,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import Image from 'next/image';
 
 const ProfileDropdown = ({ user, onLogout }) => {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef(null);
-    const userImage = user.image || `https://i.pravatar.cc/150?u=${user.name}`;
+    const userImage = user.image || `https://i.pravatar.cc/150?u=${user.email}`;
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -19,49 +20,64 @@ const ProfileDropdown = ({ user, onLogout }) => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    const getDashboardLink = () => {
+        if (user.role === 'admin') return '/admin';
+        if (user.role === 'helper') return '/helper-dashboard';
+        return '/dashboard';
+    };
+
     return (
         <div className="relative z-50" ref={dropdownRef}>
             <button 
                 onClick={() => setIsOpen(!isOpen)} 
-                className="flex items-center gap-2 transition-transform duration-300 hover:scale-105"
+                className="flex items-center gap-3 transition-all duration-300 hover:opacity-80"
             >
                 <img 
                     src={userImage} 
-                    alt={user.name} 
-                    className="w-10 h-10 rounded-full ring-2 ring-offset-2 ring-gray-300 object-cover" 
+                    alt="" 
+                    className="w-10 h-10 rounded-xl ring-2 ring-slate-900/10 object-cover shadow-sm grayscale hover:grayscale-0 transition-all" 
                 />
-                <span className="hidden lg:block font-medium text-gray-700">{user.name}</span>
+                <div className="hidden lg:flex flex-col items-start leading-tight text-left">
+                    <span className="font-black text-[11px] uppercase tracking-widest text-slate-950">{user.name || user.fullName}</span>
+                    <span className={`text-[9px] font-bold uppercase tracking-tighter ${user.role === 'admin' ? 'text-blue-600' : 'text-slate-500'}`}>
+                        {user.role} Authorization
+                    </span>
+                </div>
             </button>
 
             {isOpen && (
-                <div className="absolute right-0 mt-3 w-56 bg-white rounded-xl shadow-xl py-2 border border-gray-100 animate-fadeIn">
-                    <div className="px-4 py-3 text-sm border-b border-gray-100">
-                        <p className="font-bold text-gray-800 truncate">{user.name}</p>
-                        <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                <div className="absolute right-0 mt-4 w-64 bg-white rounded-[1.5rem] shadow-2xl py-3 border border-slate-100 animate-in zoom-in-95 duration-200">
+                    <div className="px-6 py-4 border-b border-slate-50">
+                        <p className="font-black text-xs uppercase tracking-widest text-slate-950 truncate">{user.name || user.fullName}</p>
+                        <p className="text-[10px] font-bold text-slate-500 truncate mt-0.5 uppercase tracking-tighter">{user.email}</p>
                     </div>
                     
-                    <Link 
-                        href="/profile" 
-                        className="block w-full text-left px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                        onClick={() => setIsOpen(false)}
-                    >
-                        My Profile
-                    </Link>
-                    
-                    <Link 
-                        href="/dashboard" 
-                        className="block w-full text-left px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                        onClick={() => setIsOpen(false)}
-                    >
-                        My Dashboard
-                    </Link>
-                    
-                    <button 
-                        onClick={onLogout} 
-                        className="w-full text-left block px-4 py-2 text-sm text-red-500 hover:bg-red-50 font-medium"
-                    >
-                        Sign Out
-                    </button>
+                    <div className="p-2 space-y-1">
+                        <Link 
+                            href="/profile" 
+                            className="flex items-center px-4 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 hover:bg-slate-50 hover:text-slate-950 rounded-xl transition-all"
+                            onClick={() => setIsOpen(false)}
+                        >
+                            Profile Metrics
+                        </Link>
+                        
+                        <Link 
+                            href={getDashboardLink()}
+                            className="flex items-center px-4 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 hover:bg-slate-50 hover:text-slate-950 rounded-xl transition-all"
+                            onClick={() => setIsOpen(false)}
+                        >
+                            {user.role === 'admin' ? 'Admin Console' : (user.role === 'helper' ? 'Specialist Suite' : 'Command Center')}
+                        </Link>
+                        
+                        <div className="pt-2 mt-2 border-t border-slate-50">
+                            <button 
+                                onClick={onLogout} 
+                                className="w-full flex items-center px-4 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                            >
+                                Terminate Session
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
@@ -75,12 +91,12 @@ const NavLink = ({ href, label }) => {
     return (
         <Link 
             href={href} 
-            className={`relative font-semibold transition-colors group ${
-                isActive ? 'text-gray-900' : 'text-gray-600 hover:text-gray-950'
+            className={`text-[10px] font-black uppercase tracking-[0.3em] transition-all hover:text-slate-950 relative group ${
+                isActive ? 'text-slate-950' : 'text-slate-500'
             }`}
         >
             {label}
-            <span className={`absolute bottom-[-4px] left-0 h-0.5 bg-gray-900 transition-all duration-300 ${isActive ? 'w-full' : 'w-0 group-hover:w-full'}`}></span>
+            <div className={`h-0.5 w-full bg-slate-950 mt-1 rounded-full transition-transform duration-300 origin-left ${isActive ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-50'}`}></div>
         </Link>
     );
 };
@@ -88,16 +104,30 @@ const NavLink = ({ href, label }) => {
 const Navbar = () => {
     const [user, setUser] = useState(null);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const pathname = usePathname();
 
-    useEffect(() => {
+    const loadUser = () => {
         const storedUser = localStorage.getItem('user');
         if (storedUser) {
-            const parsedUser = JSON.parse(storedUser);
-            if (parsedUser.fullName && !parsedUser.name) {
-                parsedUser.name = parsedUser.fullName;
+            try {
+                const parsedUser = JSON.parse(storedUser);
+                setUser(parsedUser);
+            } catch (e) {
+                console.error("Auth sync error");
             }
-            setUser(parsedUser);
+        } else {
+            setUser(null);
         }
+    };
+
+    useEffect(() => {
+        loadUser();
+        window.addEventListener('userUpdated', loadUser);
+        window.addEventListener('storage', loadUser);
+        return () => {
+            window.removeEventListener('userUpdated', loadUser);
+            window.removeEventListener('storage', loadUser);
+        };
     }, []);
 
     const handleLogout = () => {
@@ -106,55 +136,59 @@ const Navbar = () => {
         window.location.href = '/login';
     };
 
+    const getDashboardLink = () => {
+        if (!user) return '/dashboard';
+        if (user.role === 'admin') return '/admin';
+        if (user.role === 'helper') return '/helper-dashboard';
+        return '/dashboard';
+    };
+
     let navLinks = [
         { href: '/', label: 'Home' },
         { href: '/about', label: 'About' },
-        { href: '/services', label: 'Services' },
-        { href: '/how-it-works', label: 'How It Works' },
+        { href: '/helper', label: 'Registry' },
+        { href: '/services', label: 'Protocol' },
+        { href: '/faq', label: 'Support' },
     ];
     
     if (user && user.role === 'admin') {
-        navLinks.push({ href: '/admin', label: "Admin Portal" });
-    } else if (user && user.role === 'helper') {
-        navLinks.push({ href: '/contact', label: 'Contact' });
+        navLinks.push({ href: '/admin', label: "Override" });
     } else {
         navLinks.push({ href: '/contact', label: 'Contact' });
-        navLinks.push({ href: '/join', label: 'Join Team' });
     }
 
-    const allPossibleMobileLinks = [
-        { href: '/', label: 'Home' },
-        { href: '/about', label: 'About' },
-        { href: '/services', label: 'Services' },
-        { href: '/how-it-works', label: 'How It Works' },
-        { href: '/contact', label: 'Contact' },
-        { href: '/join', label: 'Join Team' },
-        { href: '/admin', label: 'Admin Portal' },
-    ];
-
     return (
-        <nav className="bg-white/90 backdrop-blur-md text-gray-800 p-4 shadow-sm sticky top-0 z-50 border-b border-gray-100">
-            <div className="max-w-7xl mx-auto px-4 flex justify-between items-center">
-                
-                <Link href="/" className="flex items-center gap-2 text-2xl font-bold text-gray-900 hover:opacity-80 transition">
-                    <div className="w-8 h-8 bg-gray-900 rounded-full flex items-center justify-center text-white font-bold text-sm">S</div>
-                    SilverConnect
-                </Link>
+        <nav className="bg-white/90 backdrop-blur-xl sticky top-0 z-[100] border-b border-slate-100">
+            <div className="max-w-[1800px] mx-auto px-6 md:px-8 h-20 flex justify-between items-center">
+                <Link href="/" className="flex items-center gap-3 group shrink-0">
+                    <div className="w-18 h-18 flex items-center justify-center overflow-hidden transition-all group-hover:rotate-12 group-hover:scale-110">
+                        <Image 
+                            src="/logo-black.png"
+                            alt="SilverConnect Logo"
+                            width={90}
+                            height={90}
+                            className="object-contain p-1.5"
+                        />
+                    </div>
 
-                <div className="hidden md:flex items-center space-x-8">
+                    <span className="text-xl font-black tracking-tighter text-slate-950 uppercase italic leading-none">
+                        Silver<span className="text-slate-400 font-light">Connect</span>
+                    </span>
+                </Link>
+                <div className="hidden lg:flex items-center space-x-10 xl:space-x-14">
                     {navLinks.map((link) => (
                         <NavLink key={link.href} href={link.href} label={link.label} />
                     ))}
                 </div>
                 
-                <div className="hidden md:flex items-center space-x-4">
+                <div className="hidden lg:flex items-center">
                     {!user ? (
-                        <div className="flex gap-3">
-                            <Link href="/login" className="text-gray-600 hover:text-gray-900 font-medium px-3 py-2">
-                                Login
+                        <div className="flex items-center gap-8">
+                            <Link href="/login" className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 hover:text-slate-950 transition-colors">
+                                Authorization
                             </Link>
-                            <Link href="/signup" className="bg-gray-900 text-white font-bold py-2 px-5 rounded-full hover:bg-gray-950 shadow-lg transform hover:-translate-y-0.5 transition-all">
-                                Sign Up
+                            <Link href="/signup" className="bg-slate-950 text-white font-black text-[10px] uppercase tracking-[0.2em] px-8 py-3.5 rounded-2xl hover:bg-black shadow-2xl transition-all active:scale-95">
+                                Enlist Now
                             </Link>
                         </div>
                     ) : (
@@ -162,88 +196,69 @@ const Navbar = () => {
                     )}
                 </div>
 
-                <div className="md:hidden">
+                {/* MOBILE TRIGGER */}
+                <div className="lg:hidden flex items-center gap-5">
+                    {user && (
+                         <img 
+                            src={user.image || `https://i.pravatar.cc/150?u=${user.email}`} 
+                            alt="" 
+                            className="w-9 h-9 rounded-xl object-cover ring-2 ring-slate-100 grayscale" 
+                        />
+                    )}
                     <button 
                         onClick={() => setIsMenuOpen(!isMenuOpen)} 
-                        aria-label="Toggle Menu" 
-                        className="text-gray-900 hover:text-gray-950 p-2"
+                        className="text-slate-950 p-2 focus:outline-none"
                     >
-                        <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isMenuOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16m-7 6h7"} />
-                        </svg>
+                        <div className={`w-6 h-0.5 bg-slate-950 mb-1.5 transition-all duration-300 ${isMenuOpen ? 'rotate-45 translate-y-2' : ''}`}></div>
+                        <div className={`w-6 h-0.5 bg-slate-950 mb-1.5 transition-all duration-300 ${isMenuOpen ? 'opacity-0' : ''}`}></div>
+                        <div className={`w-6 h-0.5 bg-slate-950 transition-all duration-300 ${isMenuOpen ? '-rotate-45 -translate-y-2' : ''}`}></div>
                     </button>
                 </div>
             </div>
 
-            <div className={`overflow-hidden md:hidden transition-all duration-300 ease-in-out bg-white border-t ${isMenuOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                <div className="p-4 flex flex-col space-y-4">
-                    {allPossibleMobileLinks.map((link) => {
-                        const isLinkVisible = (() => {
-                            if (link.href === '/admin' && user?.role !== 'admin') return false;
-                            
-                            if (link.href === '/join' && (user?.role === 'admin' || user?.role === 'helper')) return false;
-
-                            if (link.href === '/contact' && user?.role === 'admin') return false;
-                            
-                            if (link.href === '/dashboard' || link.href === '/profile') return false;
-                            
-                            return true;
-                        })();
-
-                        if (isLinkVisible) {
-                            return (
-                                <Link 
-                                    key={link.href} 
-                                    href={link.href} 
-                                    onClick={() => setIsMenuOpen(false)}
-                                    className={`font-medium text-lg p-2 rounded-lg ${
-                                        link.href === '/admin' ? 'bg-gray-100 text-gray-900 font-bold' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                                    }`}
-                                >
-                                    {link.label}
-                                </Link>
-                            );
-                        }
-                        return null;
-                    })}
+            {/* MOBILE MENU */}
+            <div className={`lg:hidden bg-white overflow-hidden transition-all duration-500 ease-in-out border-b border-slate-100 ${isMenuOpen ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0'}`}>
+                <div className="p-2 space-y-4 flex flex-col items-center py-10">
+                    {navLinks.map((link) => (
+                        <Link 
+                            key={link.href} 
+                            href={link.href} 
+                            onClick={() => setIsMenuOpen(false)}
+                            className={`text-sm font-black uppercase tracking-widest italic transition-all ${pathname === link.href ? 'text-slate-950 translate-x-2' : 'text-slate-400'}`}
+                        >
+                            {link.label}
+                        </Link>
+                    ))}
                     
-                    <div className="w-full pt-4 border-t border-gray-100">
-                        {!user ? (
-                            <div className="flex flex-col gap-3">
-                                <Link href="/login" onClick={() => setIsMenuOpen(false)} className="text-center text-gray-900 font-bold py-2 border border-gray-200 rounded-lg">
-                                    Login
+                    <div className="w-full h-px bg-slate-50 my-2"></div>
+                    
+                    {!user ? (
+                        <div className="flex flex-col w-full gap-4 px-6">
+                            <Link href="/login" onClick={() => setIsMenuOpen(false)} className="text-center font-black uppercase tracking-widest text-slate-500 py-4 border border-slate-100 rounded-[1.5rem]">Authorization</Link>
+                            <Link href="/signup" onClick={() => setIsMenuOpen(false)} className="text-center font-black uppercase tracking-widest bg-slate-950 text-white py-5 rounded-[1.5rem] shadow-xl">Enlistment</Link>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col w-full gap-6 text-center px-6">
+                            <div className="bg-slate-50 p-8 rounded-[2.5rem] border border-slate-100 shadow-inner">
+                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2">Active Interface</p>
+                                <Link 
+                                    href={getDashboardLink()} 
+                                    onClick={() => setIsMenuOpen(false)} 
+                                    className="block text-sm font-black uppercase tracking-widest text-slate-950 italic"
+                                >
+                                    {user.role === 'admin' ? 'Admin Console' : (user.role === 'helper' ? 'Specialist Suite' : 'Command Center')}
                                 </Link>
-                                <Link href="/signup" onClick={() => setIsMenuOpen(false)} className="text-center bg-gray-900 text-white font-bold py-3 rounded-lg shadow-md">
-                                    Sign Up
+                                <Link 
+                                    href="/profile" 
+                                    onClick={() => setIsMenuOpen(false)} 
+                                    className="block text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mt-6 border border-slate-200 py-3 rounded-xl"
+                                >
+                                    Update Profile Logs
                                 </Link>
                             </div>
-                        ) : (
-                            <div className="flex flex-col gap-3">
-                                <div className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
-                                    <img 
-                                        src={user.image || `https://i.pravatar.cc/150?u=${user.name}`} 
-                                        alt={user.name} 
-                                        className="w-10 h-10 rounded-full object-cover" 
-                                    />
-                                    <div>
-                                        <p className="font-bold text-gray-800 text-sm">{user.name}</p>
-                                        <p className="text-xs text-gray-500">{user.email}</p>
-                                    </div>
-                                </div>
-                                
-                                <Link href="/profile" onClick={() => setIsMenuOpen(false)} className="text-center bg-gray-100 text-gray-700 font-bold py-2 rounded-lg">
-                                    My Profile
-                                </Link>
-                                <Link href="/dashboard" onClick={() => setIsMenuOpen(false)} className="text-center bg-gray-100 text-gray-700 font-bold py-2 rounded-lg">
-                                    My Dashboard
-                                </Link>
-                                
-                                <button onClick={handleLogout} className="text-center bg-red-50 text-red-500 font-bold py-2 rounded-lg border border-red-100">
-                                    Sign Out
-                                </button>
-                            </div>
-                        )}
-                    </div>
+                            <button onClick={handleLogout} className="font-black uppercase tracking-widest text-red-600 text-xs py-2 underline underline-offset-4 mb-10">Terminate Session</button>
+                        </div>
+                    )}
                 </div>
             </div>
         </nav>

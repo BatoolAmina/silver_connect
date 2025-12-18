@@ -5,166 +5,184 @@ import Link from 'next/link';
 
 const StarRating = ({ rating }) => {
     const stars = [];
-    const fullStars = Math.floor(rating);
-    for (let i = 0; i < 5; i++) {
-        const isFilled = i < fullStars;
-        const colorClass = isFilled ? 'text-gray-900' : 'text-gray-300';
-        stars.push(<span key={i} className={`text-xl ${colorClass}`}>★</span>);
+    const normalizedRating = Math.floor(rating || 0);
+    for (let i = 1; i <= 5; i++) {
+        stars.push(
+            <span key={i} className={`text-sm ${i <= normalizedRating ? 'text-slate-900' : 'text-slate-200'}`}>
+                ★
+            </span>
+        );
     }
-
-    return (
-        <div className="flex justify-center space-x-1">
-            {stars}
-        </div>
-    );
+    return <div className="flex justify-center space-x-0.5">{stars}</div>;
 };
 
-export default function HelpersPage() {
-    const API_BASE_URL = 'https://backend-minor-project.onrender.com';
+export default function HelpersRegistryPage() {
+    const API_BASE_URL = typeof window !== 'undefined' && window.location.hostname === 'localhost' 
+        ? 'http://localhost:5000' 
+        : 'https://backend-minor-project.onrender.com';
+
     const [helpers, setHelpers] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedSkill, setSelectedSkill] = useState('All'); 
     const [loading, setLoading] = useState(true);
-
     const [availableSkills, setAvailableSkills] = useState(['All']);
 
     useEffect(() => {
         const fetchHelpers = async () => {
             try {
                 const res = await fetch(`${API_BASE_URL}/api/helpers`);
-                if (!res.ok) {
-                    throw new Error('Failed to fetch data');
-                }
+                if (!res.ok) throw new Error('Registry Sync Fail');
                 const data = await res.json();
-                
-                const sanitizedData = data.map(helper => ({
-                    ...helper,
-                    skill: helper.role || 'Unspecified', 
-                    avatar: helper.image || 'https://cdn.pixabay.com/photo/2023/02/18/11/00/icon-7797704_640.png',
-                    rating: helper.rating || 0,
-                    numReviews: helper.reviews || 0, 
-                    location: helper.location || 'N/A',
-                    price: helper.price || 'Negotiable'
-                }));
-                
-                setHelpers(sanitizedData);
-                
-                const uniqueSkills = [...new Set(sanitizedData.map(h => h.skill))];
+                setHelpers(data);
+                const uniqueSkills = [...new Set(data.map(h => h.role || 'Specialist'))];
                 setAvailableSkills(['All', ...uniqueSkills].sort());
-                
             } catch (e) {
-                console.error("Failed to fetch helpers:", e);
+                console.error("Registry Sync Error:", e);
             } finally {
                 setLoading(false);
             }
         };
         fetchHelpers();
-    }, []);
+    }, [API_BASE_URL]);
 
     const filteredHelpers = helpers.filter((helper) => {
-        const matchesSearch = helper.name.toLowerCase().includes(searchTerm.toLowerCase()) || helper.skill.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesSkill = selectedSkill === 'All' || helper.skill === selectedSkill;
-        
+        const matchesSearch = helper.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                             (helper.role || '').toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesSkill = selectedSkill === 'All' || helper.role === selectedSkill;
         return matchesSearch && matchesSkill;
     });
 
-    if (loading) {
-        return <div className="text-center mt-16 text-gray-400 font-semibold bg-gray-950 min-h-screen">Loading Helper Network...</div>;
-    }
+    if (loading) return (
+        <div className="min-h-screen bg-white flex flex-col items-center justify-center space-y-6">
+            <div className="w-10 h-10 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-slate-900 font-black tracking-[0.5em] text-[10px] uppercase italic animate-pulse">Decrypting Registry...</p>
+        </div>
+    );
 
     return (
-        <div className="min-h-screen font-sans py-12 bg-gray-100">
-            <div className="max-w-7xl mx-auto px-4 -mt-10 relative">
-                
-                <div className="flex flex-wrap justify-between items-center pt-4 mb-8">
-                    <h2 className="text-3xl font-extrabold text-gray-900 mb-4 sm:mb-0">
-                        Available Helpers <span className="text-gray-800 text-lg font-normal">({filteredHelpers.length})</span>
-                    </h2>
-                    
-                    <div className="w-full sm:w-auto flex justify-center sm:justify-end">
-                        <Link href="/join" className="bg-gray-900 text-white font-bold py-2.5 px-6 rounded-lg shadow-lg hover:bg-gray-700 transition-colors">
-                            + Join as Helper
-                        </Link>
-                    </div>
+        <div className="bg-gray-200 min-h-screen font-sans text-slate-900 selection:bg-slate-950 selection:text-white">
+            <header className="relative pt-24 pb-15 text-center px-8 overflow-hidden bg-slate-900">
+                <div className="absolute inset-0 z-0 opacity-50 grayscale">
+                    <img src="/hero7.jpg" alt="" className="w-full h-full object-cover" /> 
                 </div>
-                
-                <div className="flex flex-col sm:flex-row gap-4 mb-8 py-6 bg-white p-6 rounded-xl shadow-md border border-gray-200">
+                <div className="absolute inset-0 bg-gradient-to-b from-slate-950/60 to-slate-950 z-0"></div>
+                <div className="max-w-[1400px] mx-auto relative z-10 text-white">
+                    <span className="text-[9px] font-black uppercase tracking-[0.6em] text-slate-500 mb-6 block italic">Vetted Personnel Registry</span>
+                    <h1 className="text-5xl md:text-7xl font-black mb-6 tracking-tighter uppercase italic leading-[0.85]">
+                        Specialists <span className="text-slate-700 font-light not-italic">.</span>
+                    </h1>
+                    <p className="text-slate-500 max-w-xl text-[11px] font-medium font-bold uppercase tracking-[0.3em] mx-auto leading-relaxed">
+                        Authorized geriatric coordination specialists and medical assistance protocols.
+                    </p>
                     
-                    <div className="flex-1">
-                        <label htmlFor="search-input" className="text-sm font-semibold text-gray-900 block mb-1">Search by Name or Skill</label>
-                        <input
-                            id="search-input"
-                            type="text"
-                            placeholder="e.g. Sarah, Companion..."
+                    <div className="relative max-w-xl mx-auto mt-10 mb-5 justify-center item-center">
+                        <input 
+                            type="text" 
+                            placeholder="Identify Specialist or expertise..." 
+                            className="w-full bg-white/5 border border-white/10 rounded-2xl px-8 py-5 text-sm focus:bg-white focus:text-slate-900 outline-none transition-all duration-500 italic font-bold placeholder:text-slate-700"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-inner bg-white text-gray-900 placeholder-gray-400 focus:border-gray-300 focus:ring-2 focus:ring-gray-300 transition-colors"
                         />
                     </div>
-                    
-                    <div className="sm:w-1/3">
-                        <label htmlFor="skill-select" className="text-sm font-semibold text-gray-900 block mb-1">Filter by Skill/Role</label>
-                        <select
-                            id="skill-select"
-                            value={selectedSkill}
-                            onChange={(e) => setSelectedSkill(e.target.value)}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg shadow-inner bg-white text-gray-900 focus:border-gray-300 focus:ring-2 focus:ring-gray-300 transition-colors appearance-none"
-                        >
+                    <div className="container mx-auto px-6 mt-10 relative z-20 mb-5">
+                        <div className="flex flex-wrap justify-center gap-3 mb-10">
                             {availableSkills.map((skill) => (
-                                <option key={skill} value={skill}>{skill}</option>
+                                <button 
+                                    key={skill}
+                                    onClick={() => setSelectedSkill(skill)}
+                                    className={`px-6 py-2.5 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] border transition-all duration-300 whitespace-nowrap ${
+                                        selectedSkill === skill 
+                                        ? 'bg-slate-900 text-white border-slate-900 shadow-2xl scale-105' 
+                                        : 'bg-white text-slate-400 border-slate-100 hover:border-slate-300 hover:text-slate-900'
+                                    }`}
+                                >
+                                    {skill}
+                                </button>
                             ))}
-                        </select>
+                        </div>
                     </div>
                 </div>
                 
-                <p className="text-gray-500 mb-6 font-semibold ml-2">
-                    Showing {filteredHelpers.length} results for &quot;{selectedSkill}&quot;
-                </p>
-
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
-                    {filteredHelpers.map((helper) => (
-                        <Link 
-                            key={helper.id} 
-                            href={`/helper/${helper.id}`}
-                            className="block"
-                        >
-                            <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-6 text-center h-full flex flex-col transition-all duration-300 transform hover:scale-[1.02] hover:shadow-2xl">
-                                
-                                <img
-                                    src={helper.avatar}
-                                    alt={helper.name}
-                                    className="w-24 h-24 rounded-full mx-auto mb-4 object-cover border-4 border-gray-200 shadow-md"
-                                />
-                                
-                                <h2 className="text-2xl font-bold text-gray-900">{helper.name}</h2>
-                                <p className="text-gray-600 font-semibold text-md mb-3">{helper.skill}</p>
-                                
-                                <div className="mt-auto pt-3 border-t border-gray-100 flex flex-col justify-end flex-grow">
-                                    <p className="text-lg font-extrabold text-green-700">{helper.price}</p>
-                                    <p className="text-gray-500 text-sm mt-1">📍 {helper.location}</p>
+            </header>
+            
+            <div className="max-w-[1600px] mx-auto px-6 md:px-12 -mt-12 mb-15 relative z-20"> 
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10">
+                    {filteredHelpers.length > 0 ? (
+                        filteredHelpers.map((helper) => (
+                            <Link key={helper._id} href={`/helper/${helper.id || helper._id}`} className="group">
+                                <div className="bg-white rounded-[3rem] p-8 border border-slate-100 shadow-[0_4px_20px_-5px_rgba(0,0,0,0.05)] transition-all duration-700 hover:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.12)] hover:-translate-y-2 flex flex-col h-full relative overflow-hidden">
                                     
-                                    <div className="mt-3">
-                                        <StarRating rating={helper.rating} />
-                                        <p className="text-xs text-gray-600 mt-1">
-                                            {helper.rating.toFixed(1)} ({helper.numReviews} reviews)
-                                        </p>
+                                    <div className="flex justify-between items-center mb-6">
+                                        <div className="flex items-center gap-2 bg-slate-50 px-3 py-1 rounded-full">
+                                            <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                                            <span className="text-[9px] font-black text-slate-900 uppercase tracking-widest">Active</span>
+                                        </div>
+                                        <span className="text-[9px] font-black text-slate-200 uppercase tracking-widest group-hover:text-slate-900 transition-colors">
+                                            ID: {helper._id.slice(-6).toUpperCase()}
+                                        </span>
                                     </div>
-                                    
-                                    <button className="mt-4 w-full bg-gray-900 text-white text-sm font-bold py-2.5 rounded-lg hover:bg-gray-700 transition shadow-lg">
-                                        View Profile
-                                    </button>
+
+                                    <div className="relative z-10 flex flex-col h-full">
+                                        <div className="flex items-start gap-5 mb-8">
+                                            <div className="relative shrink-0">
+                                                <img
+                                                    src={helper.image || `https://i.pravatar.cc/150?u=${helper.email}`}
+                                                    alt=""
+                                                    className="w-24 h-24 rounded-[2rem] object-cover border-4 border-slate-50 shadow-xl grayscale group-hover:grayscale-0 transition-all duration-1000"
+                                                />
+                                                <div className="absolute -bottom-2 -right-2 bg-slate-950 text-white w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-black border-2 border-white shadow-lg">✓</div>
+                                            </div>
+                                            <div className="pt-2">
+                                                <h2 className="text-2xl font-black text-slate-950 tracking-tighter uppercase italic leading-none mb-2">
+                                                    {helper.name}
+                                                </h2>
+                                                <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.2em]">{helper.role}</p>
+                                                <div className="mt-3">
+                                                    <StarRating rating={helper.rating} />
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="mb-8">
+                                            <p className="text-slate-500 text-[13px] leading-relaxed font-medium italic line-clamp-3 border-l-2 border-slate-100 pl-4">
+                                                {helper.bio || helper.description || "Authorized service provider specializing in geriatric care coordination and residential support protocols."}
+                                            </p>
+                                        </div>
+
+                                        <div className="flex flex-wrap gap-2 mb-8">
+                                            <span className="text-[8px] font-black uppercase tracking-widest bg-slate-50 text-slate-400 px-3 py-1.5 rounded-lg border border-slate-100 group-hover:border-slate-900 group-hover:text-slate-900 transition-all">
+                                                {helper.experience || "5+ Years"} Exp
+                                            </span>
+                                            <span className="text-[8px] font-black uppercase tracking-widest bg-slate-50 text-slate-400 px-3 py-1.5 rounded-lg border border-slate-100">
+                                                Background Verified
+                                            </span>
+                                            <span className="text-[8px] font-black uppercase tracking-widest bg-slate-50 text-slate-400 px-3 py-1.5 rounded-lg border border-slate-100">
+                                                24/7 Response
+                                            </span>
+                                        </div>
+
+                                        <div className="mt-auto w-full pt-6 border-t border-slate-50 flex justify-between items-center">
+                                            <div>
+                                                <span className="text-[8px] font-black text-slate-300 uppercase block tracking-widest mb-1">Standard Rate</span>
+                                                <span className="text-xl font-black text-slate-950 italic tracking-tighter">{helper.price}</span>
+                                            </div>
+                                            <div className="text-right">
+                                                <span className="text-[8px] font-black text-slate-300 uppercase block tracking-widest mb-1">Deployment Zone</span>
+                                                <span className="text-[11px] font-black text-slate-950 uppercase italic">{helper.location}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="absolute bottom-0 left-0 w-full h-1.5 bg-slate-950 scale-x-0 group-hover:scale-x-100 transition-transform duration-700 origin-left"></div>
                                 </div>
-                            </div>
-                        </Link>
-                    ))}
+                            </Link>
+                        )
+                    )) : (
+                        <div className="col-span-full py-40 bg-white rounded-[4rem] border-2 border-dashed border-slate-100 flex flex-col items-center justify-center">
+                            <div className="text-5xl mb-6 grayscale opacity-10">🔍</div>
+                            <h3 className="text-2xl font-black text-slate-200 uppercase tracking-tighter italic">Database Mismatch</h3>
+                            <button onClick={() => {setSearchTerm(''); setSelectedSkill('All')}} className="mt-6 text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 border-b border-slate-200 pb-1 hover:text-slate-900 hover:border-slate-900 transition-all">Clear All Parameters</button>
+                        </div>
+                    )}
                 </div>
-                
-                {filteredHelpers.length === 0 && (
-                    <div className="text-center text-gray-500 mt-12 p-12 bg-white border border-dashed border-gray-300 rounded-xl md:col-span-3 shadow-inner">
-                        <p className="text-xl font-bold mb-2">No Helpers Found</p>
-                        <p>We couldn&apos;t find any helpers matching your current search and filter criteria.</p>
-                    </div>
-                )}
             </div>
         </div>
     );

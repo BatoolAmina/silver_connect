@@ -4,7 +4,10 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-// Helper component for Star Rating (Re-used for the Edit Modal)
+const API_BASE_URL = typeof window !== 'undefined' && window.location.hostname === 'localhost' 
+    ? 'http://localhost:5000' 
+    : 'https://backend-minor-project.onrender.com';
+
 const MAX_STARS = 5;
 const StarRatingInput = ({ rating, setRating, max = MAX_STARS }) => {
     const stars = [];
@@ -13,8 +16,8 @@ const StarRatingInput = ({ rating, setRating, max = MAX_STARS }) => {
         stars.push(
             <span
                 key={i}
-                className={`cursor-pointer transition-colors text-2xl ${
-                    starValue <= rating ? 'text-amber-500' : 'text-gray-300 hover:text-amber-400'
+                className={`cursor-pointer transition-all text-2xl ${
+                    starValue <= rating ? 'text-slate-900 scale-110' : 'text-gray-200 hover:text-slate-400'
                 }`}
                 onClick={() => setRating(starValue)}
             >
@@ -22,18 +25,11 @@ const StarRatingInput = ({ rating, setRating, max = MAX_STARS }) => {
             </span>
         );
     }
-    return (
-        <div className="flex space-x-1 justify-start">
-            {stars}
-        </div>
-    );
+    return <div className="flex space-x-1 justify-start">{stars}</div>;
 };
-
 
 export default function Dashboard() {
     const router = useRouter();
-    const API_BASE_URL = 'https://backend-minor-project.onrender.com';
-
     const [user, setUser] = useState(null);
     const [bookings, setBookings] = useState([]);
     const [myReviews, setMyReviews] = useState([]);
@@ -45,35 +41,58 @@ export default function Dashboard() {
     const [isEditingReview, setIsEditingReview] = useState(null); 
     const [editReviewForm, setEditReviewForm] = useState({ rating: 0, reviewText: '' });
 
+    // --- CORE DATA FETCHING LOGIC WITH LIVE SYNC ---
     const fetchAllData = async (parsedUser) => {
         try {
-            const [resBookings, resReviews] = await Promise.all([
+            // Parallel fetch of Bookings, Reviews, and the latest Helper Registry
+            const [resBookings, resReviews, resHelpers] = await Promise.all([
                 fetch(`${API_BASE_URL}/api/bookings`),
-                fetch(`${API_BASE_URL}/api/reviews`)
+                fetch(`${API_BASE_URL}/api/reviews`),
+                fetch(`${API_BASE_URL}/api/helpers`) 
             ]);
 
-            if (!resBookings.ok) throw new Error("Failed to fetch bookings.");
-            if (!resReviews.ok) throw new Error("Failed to fetch reviews.");
+            if (!resBookings.ok || !resReviews.ok || !resHelpers.ok) throw new Error("Sync failed.");
             
             const allBookings = await resBookings.json();
             const allReviews = await resReviews.json();
+            const latestHelpers = await resHelpers.json();
             
-            const userBookings = allBookings.filter(
-                booking => booking.userEmail === parsedUser.email
-            ).sort((a, b) => new Date(b.date) - new Date(a.date));
+            // 1. SYNC BOOKINGS: Cross-reference with live Helper Registry
+            const syncedUserBookings = allBookings
+                .filter(booking => booking.userEmail === parsedUser.email)
+                .map(booking => {
+                    const currentHelper = latestHelpers.find(h => h.email === booking.helperEmail);
+                    return {
+                        ...booking,
+                        // Use live data if helper exists in registry, else fallback to booking record
+                        helperName: currentHelper?.name || booking.helperName,
+                        helperImage: currentHelper?.image || `https://i.pravatar.cc/150?u=${booking.helperEmail}`
+                    };
+                })
+                .sort((a, b) => new Date(b.date) - new Date(a.date));
 
-            setBookings(userBookings);
+            setBookings(syncedUserBookings);
 
-            const reviewerName = parsedUser.name || parsedUser.fullName;
-            const userReviews = allReviews.filter(
-                review => review.reviewerName === reviewerName
-            ).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            // 2. SYNC REVIEWS: Cross-reference reviewer names and helper details
+            const reviewerName = parsedUser.fullName || parsedUser.name;
+            const syncedUserReviews = allReviews
+                .filter(review => review.reviewerName === reviewerName)
+                .map(review => {
+                    const currentHelper = latestHelpers.find(h => 
+                        h._id === review.helperId || h.id?.toString() === review.helperId?.toString()
+                    );
+                    return {
+                        ...review,
+                        helperName: currentHelper?.name || "Specialist",
+                        helperImage: currentHelper?.image || `https://i.pravatar.cc/150?u=${review.helperId}`
+                    };
+                })
+                .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
             
-            setMyReviews(userReviews);
-
+            setMyReviews(syncedUserReviews);
         } catch (error) {
-            console.error("Error fetching dashboard data:", error);
-            setMessage({ type: 'error', text: 'Failed to load dashboard data.' });
+            console.error("Dashboard Sync Error:", error);
+            setMessage({ type: 'error', text: 'DATABASE SYNCHRONIZATION FAILURE.' });
         } finally {
             setLoading(false);
         }
@@ -94,418 +113,238 @@ export default function Dashboard() {
         }
         
         if (parsedUser.role === 'helper') {
-            fetch(`${API_BASE_URL}/api/helper-profile/${parsedUser.email}`)
-                .then(res => res.json())
-                .then(profile => {
+            const checkHelperStatus = async () => {
+                try {
+                    const res = await fetch(`${API_BASE_URL}/api/helper-profile/${parsedUser.email}`);
+                    const profile = await res.json();
                     if (profile.status === 'Approved') {
                         router.push('/helper-dashboard');
-                    } else if (profile.status === 'Pending') {
-                        setShowHelperPendingMessage(true);
-                        setUser(parsedUser);
-                        fetchAllData(parsedUser);
                     } else {
+                        if (profile.status === 'Pending') setShowHelperPendingMessage(true);
                         setUser(parsedUser);
                         fetchAllData(parsedUser);
                     }
-                })
-                .catch(() => {
+                } catch (err) {
                     setUser(parsedUser);
                     fetchAllData(parsedUser);
-                });
+                }
+            };
+            checkHelperStatus();
             return;
         }
         
         setUser(parsedUser);
         fetchAllData(parsedUser);
-
-        const roleCheckInterval = setInterval(() => {
-            const updatedStoredUser = localStorage.getItem('user');
-            if (updatedStoredUser) {
-                const updatedParsedUser = JSON.parse(updatedStoredUser);
-                
-                if (updatedParsedUser.role !== parsedUser.role) {
-                    router.push(`/${updatedParsedUser.role}-dashboard`);
-                } else if (updatedParsedUser.role === 'user') {
-                    fetchAllData(parsedUser);
-                }
-            }
-        }, 10000);
-
-        return () => clearInterval(roleCheckInterval);
-
     }, [router]);
 
-    const getStatusClass = (status) => {
-        switch (status) {
-            case 'Confirmed':
-                return 'bg-green-600 text-white font-bold';
-            case 'Rejected':
-            case 'Cancelled':
-                return 'bg-red-100 text-red-700 font-semibold';
-            case 'Pending':
-            default:
-                return 'bg-yellow-100 text-yellow-700 font-semibold';
-        }
-    };
-    
     const handleCancelBooking = async (bookingId) => {
-        const bookingToCancel = bookings.find(b => b.id === bookingId);
-        
-        if (!bookingToCancel || !['Pending', 'Confirmed'].includes(bookingToCancel.status)) {
-            setMessage({ type: 'error', text: "This booking cannot be cancelled in its current state." });
-            return;
-        }
-
-        if(window.confirm(`Are you sure you want to cancel the booking with ${bookingToCancel.helperName} on ${bookingToCancel.date}?`)) {
+        if(window.confirm(`VOID APPOINTMENT SESSION?`)) {
             try {
-                const res = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/cancel`, { 
-                    method: 'PUT' 
-                });
-                
+                const res = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/cancel`, { method: 'PUT' });
                 if (res.ok) {
-                    setMessage({ type: 'success', text: "Booking successfully cancelled. The helper has been notified." });
+                    setMessage({ type: 'success', text: "✓ SESSION VOIDED." });
                     setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'Cancelled' } : b));
-                } else {
-                    setMessage({ type: 'error', text: "Failed to cancel booking. Server error." });
                 }
-
             } catch (err) {
-                console.error(err);
-                setMessage({ type: 'error', text: "Server error during cancellation." });
+                setMessage({ type: 'error', text: "VOID TRANSMISSION FAILED." });
             }
         }
-    };
-
-    const getMessageClasses = (type) => {
-        switch (type) {
-            case 'success':
-                return 'bg-green-100 text-green-700 border-green-300';
-            case 'error':
-                return 'bg-red-100 text-red-700 border-red-300';
-            default:
-                return 'hidden';
-        }
-    };
-    
-    const getHelperNameForReview = (bookingId) => {
-        const booking = bookings.find(b => b.id === bookingId);
-        return booking ? booking.helperName : "Helper";
-    };
-
-    const openEditReviewModal = (review) => {
-        setIsEditingReview(review);
-        setEditReviewForm({ 
-            rating: review.rating, 
-            reviewText: review.reviewText 
-        });
-    };
-
-    const handleEditReviewChange = (e) => {
-        const { name, value } = e.target;
-        setEditReviewForm(prev => ({ ...prev, [name]: value }));
-    };
-    
-    const handleSetEditRating = (newRating) => {
-        setEditReviewForm(prev => ({ ...prev, rating: newRating }));
     };
 
     const handleUpdateReview = async (e) => {
         e.preventDefault();
-        
-        if (editReviewForm.rating === 0) {
-            setMessage({ type: 'error', text: "Please select a star rating (1-5)." });
-            return;
-        }
-
         try {
             const res = await fetch(`${API_BASE_URL}/api/reviews/${isEditingReview._id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(editReviewForm)
             });
-            
             if (res.ok) {
-                setMessage({ type: 'success', text: "Review updated successfully!" });
+                setMessage({ type: 'success', text: "✓ FEEDBACK SYNCHRONIZED." });
                 setIsEditingReview(null); 
                 fetchAllData(user); 
-            } else {
-                setMessage({ type: 'error', text: "Failed to update review." });
             }
         } catch (err) {
-            console.error(err);
-            setMessage({ type: 'error', text: "Server error updating review." });
+            setMessage({ type: 'error', text: "ARCHIVE UPDATE FAILED." });
         }
     };
 
     const handleDeleteReview = async (reviewId) => {
-        if (!confirm("Are you sure you want to delete this review? Deleting the review allows you to submit a new one for the booking.")) return;
-        
+        if (!confirm("PURGE THIS LOG PERMANENTLY?")) return;
         try {
-            const res = await fetch(`${API_BASE_URL}/api/reviews/${reviewId}`, { 
-                method: 'DELETE' 
-            });
-
+            const res = await fetch(`${API_BASE_URL}/api/reviews/${reviewId}`, { method: 'DELETE' });
             if (res.ok) {
-                setMessage({ type: 'success', text: "Review deleted successfully! You can now review the associated booking again." });
+                setMessage({ type: 'success', text: "✓ ARCHIVE PURGED." });
                 fetchAllData(user); 
-            } else {
-                setMessage({ type: 'error', text: "Failed to delete review." });
             }
         } catch (error) {
-            console.error(error);
-            setMessage({ type: 'error', text: "Server error deleting review." });
+            setMessage({ type: 'error', text: "PURGE FAILED." });
         }
     };
 
-
-    if (loading || !user) return <div className="min-h-screen bg-gray-100 flex items-center justify-center font-bold text-gray-500">Loading Dashboard...</div>;
+    if (loading || !user) return (
+        <div className="min-h-screen bg-white flex flex-col items-center justify-center space-y-4">
+            <div className="w-10 h-10 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-slate-900 font-black tracking-widest text-[9px] uppercase italic">Accessing Terminal...</p>
+        </div>
+    );
 
     return (
-        <div className="min-h-screen bg-gray-100 font-sans pb-20">
-            
-            <div className="bg-gradient-to-r from-gray-900 to-gray-700 text-white pt-12 pb-16 px-6 shadow-xl">
-                <div className="container mx-auto max-w-5xl flex flex-col md:flex-row justify-between items-start gap-4">
-                    <div className="flex items-center gap-4">
+        <div className="min-h-screen bg-gray-50 font-sans text-slate-900 pb-20">
+            <header className="bg-slate-900 text-white pt-24 pb-36 px-6 relative overflow-hidden">
+                <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8 relative z-10">
+                    <div className="flex items-center gap-8">
                         <img 
-                            src={user.image} 
-                            alt={user.name} 
-                            className="w-16 h-16 rounded-full border-4 border-white object-cover" 
+                            src={user.image || `https://i.pravatar.cc/150?u=${user.email}`} 
+                            alt="" 
+                            className="w-28 h-28 rounded-[2.5rem] border-4 border-white/10 object-cover shadow-2xl grayscale hover:grayscale-0 transition-all duration-700" 
                         />
                         <div>
-                            <h1 className="text-3xl font-extrabold">Welcome, {user?.name || user?.fullName}</h1>
-                            <p className="opacity-90 mt-1 text-sm">{user?.email}</p>
-                        </div>
-                    </div>
-                    
-                    <div className="flex gap-3 mt-4 md:mt-0">
-                        <div className="bg-white/10 backdrop-blur-sm px-4 py-1.5 rounded-full border border-white/20 flex items-center self-start">
-                            <span className="text-xs uppercase tracking-wider opacity-70 mr-2">Role:</span>
-                            <span className="font-bold capitalize">{user?.role || 'Member'}</span>
+                            <span className="text-[9px] font-black uppercase tracking-[0.4em] text-gray-400 mb-2 block italic">Authenticated User</span>
+                            <h1 className="text-5xl font-black tracking-tighter uppercase italic leading-none">{user?.fullName || user?.name}</h1>
+                            <p className="text-gray-400 text-xs font-bold mt-2 uppercase tracking-widest">{user?.email}</p>
                         </div>
                     </div>
                 </div>
-            </div>
+                <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -mr-32 -mt-32"></div>
+            </header>
 
-            <div className="container mx-auto px-6 max-w-5xl -mt-8">
-                
+            <div className="max-w-6xl mx-auto px-6 -mt-12 relative z-20">
                 {message.text && (
-                    <div className={`p-4 mb-6 rounded-xl border font-medium ${getMessageClasses(message.type)}`}>
+                    <div className={`p-5 mb-8 rounded-2xl border font-black text-[9px] tracking-[0.1em] uppercase shadow-lg ${
+                        message.type === 'success' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-red-50 text-red-700 border-red-100'
+                    }`}>
                         {message.text}
                     </div>
                 )}
-                
-                {showHelperPendingMessage && (
-                    <div className="bg-yellow-100 border-l-4 border-yellow-500 p-6 rounded-xl text-yellow-800 font-medium mb-6 shadow-md">
-                        <p className="font-bold text-xl">Application Pending</p>
-                        <p className="text-sm mt-2">Your helper profile application is currently under review by the administrator. You will be automatically redirected to your Helper Dashboard upon approval.</p>
+
+                <div className="flex bg-white p-2 rounded-[2rem] shadow-sm border border-gray-100 mb-12 w-fit">
+                    {['bookings', 'reviews'].map((tab) => (
+                        <button 
+                            key={tab}
+                            onClick={() => setActiveTab(tab)} 
+                            className={`px-12 py-3.5 rounded-[1.5rem] font-black text-[10px] uppercase tracking-[0.3em] transition-all ${
+                                activeTab === tab ? 'bg-slate-900 text-white shadow-xl' : 'text-gray-300 hover:text-slate-600'
+                            }`}
+                        >
+                            {tab}
+                        </button>
+                    ))}
+                </div>
+
+                {/* --- BOOKINGS TAB --- */}
+                {activeTab === 'bookings' && (
+                    <div className="grid grid-cols-1 gap-6">
+                        {bookings.length === 0 ? (
+                            <div className="bg-white p-24 rounded-[4rem] text-center border border-dashed border-gray-200">
+                                <p className="text-gray-300 font-black uppercase tracking-widest text-[9px]">No operational history found.</p>
+                            </div>
+                        ) : (
+                            bookings.map((booking) => (
+                                <div key={booking.id} className="bg-white p-10 rounded-[3rem] shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-center gap-8 transition-all hover:shadow-2xl group">
+                                    <div className="flex items-center gap-10 w-full">
+                                        <div className="relative">
+                                            <img src={booking.helperImage} alt="" className="w-20 h-20 rounded-[2rem] object-cover shadow-inner grayscale group-hover:grayscale-0 transition-all duration-700" />
+                                            <div className="absolute -bottom-2 -right-2 bg-slate-900 text-white w-7 h-7 rounded-lg flex items-center justify-center text-xs border-2 border-white shadow-lg">
+                                                {booking.status === 'Confirmed' ? '✓' : '○'}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <span className="text-[8px] font-black uppercase tracking-widest text-gray-300 block mb-1 italic uppercase">Registry Identity</span>
+                                            <h3 className="text-2xl font-black uppercase italic tracking-tighter text-slate-900">{booking.helperName}</h3>
+                                            <div className="flex gap-4 mt-2">
+                                                <span className="text-gray-400 text-[10px] font-bold uppercase tracking-widest">{booking.date}</span>
+                                                <span className="text-gray-300 text-[10px] font-black italic">@ {booking.startTime}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-6 w-full md:w-auto justify-end">
+                                        <span className={`px-5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border ${
+                                            booking.status === 'Confirmed' ? 'bg-green-50 text-green-700 border-green-100' : 
+                                            (booking.status === 'Cancelled' ? 'bg-red-50 text-red-700 border-red-100' : 'bg-white text-gray-300 border-gray-100')
+                                        }`}>
+                                            {booking.status}
+                                        </span>
+                                        
+                                        {['Pending', 'Confirmed'].includes(booking.status) && (
+                                            <button onClick={() => handleCancelBooking(booking.id)} className="text-gray-200 hover:text-red-600 transition-colors p-3 bg-gray-50 rounded-xl">✕</button>
+                                        )}
+                                        
+                                        {booking.status === 'Confirmed' && !booking.isReviewed && (
+                                            <Link href={`/review/${booking.id}`}>
+                                                <button className="bg-slate-900 text-white px-8 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl active:scale-95">Verify Service</button>
+                                            </Link>
+                                        )}
+                                    </div>
+                                </div>
+                            ))
+                        )}
                     </div>
                 )}
 
-                <div className="flex border-b border-gray-300 mt-8 mb-8">
-                    <button 
-                        onClick={() => setActiveTab('bookings')}
-                        className={`px-4 py-3 font-bold transition-colors ${activeTab === 'bookings' ? 'text-gray-900 border-b-4 border-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
-                    >
-                        Appointments ({bookings.length})
-                    </button>
-                    <button 
-                        onClick={() => setActiveTab('reviews')}
-                        className={`px-4 py-3 font-bold transition-colors ${activeTab === 'reviews' ? 'text-gray-900 border-b-4 border-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
-                    >
-                        My Reviews ({myReviews.length})
-                    </button>
-                </div>
-
-                {activeTab === 'bookings' && (
-                    <>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-                            <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200">
-                                <h3 className="text-gray-500 text-sm font-bold uppercase">Total Bookings</h3>
-                                <p className="text-3xl font-bold text-gray-900 mt-2">{bookings.length}</p>
-                            </div>
-                            <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200">
-                                <h3 className="text-gray-500 text-sm font-bold uppercase">Confirmed Services</h3>
-                                <p className="text-3xl font-bold text-green-600 mt-2">{bookings.filter(b => b.status === 'Confirmed').length}</p>
-                            </div>
-                            
-                            <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 flex flex-col justify-between">
-                                <h3 className="text-gray-500 text-sm font-bold uppercase">Need a New Service?</h3>
-                                <Link href="/helper">
-                                    <button className="text-gray-900 text-sm font-bold hover:underline mt-2 block w-max">Book a helper →</button>
-                                </Link>
-                            </div>
-                        </div>
-
-                        <h2 className="text-2xl font-bold text-gray-800 mb-6 border-b pb-2">Upcoming & Past Appointments</h2>
-
-                        {bookings.length === 0 ? (
-                            <div className="bg-white p-16 rounded-xl shadow-sm text-center border border-gray-200">
-                                <div className="text-5xl mb-4">📅</div>
-                                <h3 className="text-xl font-bold text-gray-800">No bookings yet</h3>
-                                <Link href="/helper">
-                                    <button className="bg-gray-900 text-white px-8 py-3 rounded-full hover:bg-gray-700 transition shadow-md font-bold mt-6">Find a Helper</button>
-                                </Link>
-                            </div>
-                        ) : (
-                            <div className="space-y-4">
-                                {bookings.map((booking) => (
-                                    <div key={booking.id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-lg transition duration-300 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                                        
-                                        <div className="flex items-start gap-4 w-full">
-                                            <div className="w-12 h-12 md:w-16 md:h-16 bg-gray-100 rounded-xl flex items-center justify-center text-2xl md:text-3xl shadow-sm flex-shrink-0">
-                                                {booking.status === 'Confirmed' ? '✅' : '⏳'}
-                                            </div>
-                                            <div>
-                                                <h3 className="text-lg md:text-xl font-bold text-gray-800">{booking.helperName || "Care Appointment"}</h3>
-                                                <p className="text-gray-500 text-xs md:text-sm mt-1">Helper Email: {booking.helperEmail}</p>
-                                                <div className="text-gray-600 text-sm mt-2 flex flex-col md:flex-row gap-1 md:gap-3">
-                                                    <span className="font-medium">📅 {booking.date}</span>
-                                                    <span className="hidden md:inline">|</span>
-                                                    <span className="font-medium">⏰ {booking.startTime} - {booking.endTime}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        
-                                        <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end pt-2 md:pt-0 border-t md:border-t-0">
-                                            
-                                            <span className={`px-3 py-1.5 rounded-full text-xs uppercase ${getStatusClass(booking.status)}`}>
-                                                {booking.status}
-                                            </span>
-                                            
-                                            {['Pending', 'Confirmed'].includes(booking.status) && !booking.isReviewed && (
-                                                <button 
-                                                    onClick={() => handleCancelBooking(booking.id)}
-                                                    className="text-gray-400 hover:text-red-500 transition text-2xl md:text-lg p-1" 
-                                                    title="Cancel Booking"
-                                                >
-                                                    ✕
-                                                </button>
-                                            )}
-                                            
-                                            {booking.status === 'Confirmed' && (
-                                                booking.isReviewed ? (
-                                                    <span className="bg-gray-100 text-gray-600 px-3 py-1.5 rounded-full text-xs font-bold border border-gray-300">
-                                                        Reviewed
-                                                    </span>
-                                                ) : (
-                                                    <Link href={`/review/${booking.id}`}>
-                                                        <button 
-                                                            className="bg-green-600 text-white px-4 py-2 rounded-full text-xs font-bold hover:bg-green-700 transition shadow-sm"
-                                                            title="Submit Review"
-                                                        >
-                                                            Rate Helper
-                                                        </button>
-                                                    </Link>
-                                                )
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </>
-                )}
-
+                {/* --- REVIEWS TAB --- */}
                 {activeTab === 'reviews' && (
-                    <>
-                        <h2 className="text-2xl font-bold text-gray-800 mb-6 border-b pb-2">Reviews I've Written</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         {myReviews.length === 0 ? (
-                            <div className="bg-white p-16 rounded-xl shadow-sm text-center border border-gray-200">
-                                <div className="text-5xl mb-4">⭐</div>
-                                <h3 className="text-xl font-bold text-gray-800">No reviews submitted yet.</h3>
-                                <p className="text-gray-500 mt-2">Finish a confirmed booking to leave a review.</p>
+                            <div className="col-span-full bg-white p-24 rounded-[4rem] text-center border border-dashed border-gray-200">
+                                <p className="text-gray-300 font-black uppercase tracking-widest text-[9px]">Archived feedback is empty.</p>
                             </div>
                         ) : (
-                            <div className="space-y-6">
-                                {myReviews.map(review => (
-                                    <div key={review._id} className="bg-white p-6 rounded-xl shadow-md border border-gray-200 transition hover:shadow-lg relative">
-                                        <div className="flex items-center justify-between mb-3 border-b border-gray-100 pb-3">
-                                            <p className="font-bold text-lg text-gray-900">
-                                                Review for: <span className="text-gray-600">{getHelperNameForReview(review.bookingId)}</span>
-                                            </p>
-                                            <span className="text-sm text-gray-500">
-                                                {new Date(review.timestamp).toLocaleDateString()}
-                                            </span>
+                            myReviews.map(review => (
+                                <div key={review._id} className="bg-white p-12 rounded-[3.5rem] shadow-sm border border-gray-100 relative group flex flex-col hover:shadow-2xl transition-all duration-500">
+                                    <div className="flex justify-between items-center border-b border-gray-50 pb-8 mb-8">
+                                        <div className="flex items-center gap-4">
+                                            <img src={review.helperImage} className="w-10 h-10 rounded-xl grayscale" alt="" />
+                                            <div>
+                                                <p className="font-black text-[8px] uppercase tracking-[0.3em] text-gray-300 italic uppercase leading-none mb-1">Audit: {review.helperName}</p>
+                                                <p className="font-bold text-[10px] text-slate-400">Ref ID: {review.bookingId}</p>
+                                            </div>
                                         </div>
-                                        <div className="flex items-center text-amber-500 text-xl mb-3">
-                                            {Array.from({ length: 5 }, (_, i) => (
-                                                <span key={i} className={`text-2xl ${i < review.rating ? 'text-amber-500' : 'text-gray-300'}`}>★</span>
-                                            ))}
-                                            <span className="ml-3 text-gray-900 font-bold text-xl">{review.rating}</span>
-                                        </div>
-                                        <p className="text-gray-700 leading-relaxed italic pt-3 mt-3">
-                                            "{review.reviewText}"
-                                        </p>
-                                        <p className="text-xs text-gray-400 mt-3">Booking ID: {review.bookingId}</p>
-                                        
-                                        <div className="mt-4 flex justify-end space-x-3">
-                                            <button 
-                                                onClick={() => openEditReviewModal(review)}
-                                                className="text-blue-600 hover:bg-blue-50 px-3 py-1 rounded-full text-sm font-bold transition border border-blue-200"
-                                                title="Edit Review"
-                                            >
-                                                Edit
-                                            </button>
-                                            <button 
-                                                onClick={() => handleDeleteReview(review._id)}
-                                                className="text-red-600 hover:bg-red-50 px-3 py-1 rounded-full text-sm font-bold transition border border-red-200"
-                                                title="Delete Review"
-                                            >
-                                                Delete
-                                            </button>
-                                        </div>
+                                        <span className="text-[9px] font-black text-gray-300 uppercase tracking-tighter">{new Date(review.timestamp).toLocaleDateString()}</span>
                                     </div>
-                                ))}
-                            </div>
+                                    <div className="flex mb-8 grayscale group-hover:grayscale-0 transition-all duration-700">
+                                        {Array.from({ length: 5 }, (_, i) => (
+                                            <span key={i} className={`text-2xl ${i < review.rating ? 'text-slate-900' : 'text-gray-100'}`}>★</span>
+                                        ))}
+                                    </div>
+                                    <p className="text-slate-600 italic text-lg leading-relaxed font-medium mb-12 flex-grow">&quot;{review.reviewText}&quot;</p>
+                                    <div className="flex justify-end gap-6 pt-6 border-t border-gray-50">
+                                        <button onClick={() => { setIsEditingReview(review); setEditReviewForm({ rating: review.rating, reviewText: review.reviewText }); }} className="text-slate-900 font-black text-[9px] uppercase tracking-widest border-b-2 border-slate-900 transition-all">Modify</button>
+                                        <button onClick={() => handleDeleteReview(review._id)} className="text-red-400 font-black text-[9px] uppercase tracking-widest border-b-2 border-red-400 transition-all">Delete</button>
+                                    </div>
+                                </div>
+                            ))
                         )}
-                    </>
+                    </div>
                 )}
             </div>
-            
+            {/* Preserving edit modal logic */}
             {isEditingReview && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fadeIn">
-                        <div className="bg-gray-900 px-6 py-4 flex justify-between items-center text-white">
-                            <h3 className="font-bold text-lg">Edit Your Review for: {getHelperNameForReview(isEditingReview.bookingId)}</h3>
-                            <button onClick={() => setIsEditingReview(null)} className="text-white hover:text-gray-300 font-bold text-xl">×</button>
-                        </div>
-                        
-                        <form onSubmit={handleUpdateReview} className="p-6 space-y-4">
-                            
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-6">
+                    <div className="bg-white rounded-[4rem] shadow-2xl w-full max-w-xl overflow-hidden animate-in zoom-in duration-300">
+                        <div className="bg-slate-900 px-12 py-10 flex justify-between items-center text-white">
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-2">Rating</label>
-                                <StarRatingInput 
-                                    rating={editReviewForm.rating} 
-                                    setRating={handleSetEditRating} 
-                                />
-                                <p className="text-xs text-gray-500 mt-1">Click stars to select rating.</p>
+                                <h3 className="font-black uppercase italic tracking-tighter text-2xl">Modify Audit</h3>
+                                <p className="text-[9px] uppercase tracking-[0.4em] text-gray-400 mt-2">Dossier Update Protocol</p>
                             </div>
-
+                            <button onClick={() => setIsEditingReview(null)} className="text-3xl font-light opacity-50 hover:opacity-100 transition-opacity">×</button>
+                        </div>
+                        <form onSubmit={handleUpdateReview} className="p-12 space-y-12">
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Review Text</label>
+                                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-6 italic">Performance Metric</label>
+                                <StarRatingInput rating={editReviewForm.rating} setRating={(val) => setEditReviewForm({...editReviewForm, rating: val})} />
+                            </div>
+                            <div>
+                                <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-4 italic">Qualitative Statement</label>
                                 <textarea 
-                                    name="reviewText" 
-                                    value={editReviewForm.reviewText || ''} 
-                                    onChange={handleEditReviewChange} 
+                                    value={editReviewForm.reviewText} 
+                                    onChange={(e) => setEditReviewForm({...editReviewForm, reviewText: e.target.value})} 
                                     rows="5" 
-                                    className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-gray-900 outline-none" 
+                                    className="w-full bg-gray-50 border-none rounded-[2rem] p-8 focus:ring-1 focus:ring-slate-900 outline-none transition-all font-medium italic text-slate-700 shadow-inner" 
                                     required 
                                 />
                             </div>
-
-                            <div className="pt-2">
-                                <button 
-                                    type="submit" 
-                                    disabled={editReviewForm.rating === 0}
-                                    className={`w-full font-bold py-3 rounded-lg transition shadow-lg ${
-                                        editReviewForm.rating === 0 
-                                            ? 'bg-gray-400 cursor-not-allowed text-gray-200' 
-                                            : 'bg-gray-900 text-white hover:bg-gray-700'
-                                    }`}
-                                >
-                                    Save Review Changes
-                                </button>
-                            </div>
+                            <button type="submit" className="w-full bg-slate-900 text-white font-black py-6 rounded-[2rem] uppercase tracking-[0.4em] text-[10px] shadow-2xl hover:bg-black transition-all">Synchronize Registry</button>
                         </form>
                     </div>
                 </div>

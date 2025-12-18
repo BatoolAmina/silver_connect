@@ -2,38 +2,28 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+
+const API_BASE_URL = typeof window !== 'undefined' && window.location.hostname === 'localhost' 
+    ? 'http://localhost:5000' 
+    : 'https://backend-minor-project.onrender.com';
 
 export default function ProfilePage() {
     const router = useRouter();
-    const API_BASE_URL = 'https://backend-minor-project.onrender.com';
     const [user, setUser] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
-
     const [selectedImageFile, setSelectedImageFile] = useState(null);
     const [imageURLInput, setImageURLInput] = useState('');
 
     const [formData, setFormData] = useState({
-        name: '',
-        email: '',
-        role: '',
-        image: '',
-        phone: '',
-        address: '',
-        bio: ''
+        name: '', email: '', role: '', image: '', phone: '', address: '', bio: ''
     });
 
     const updateUserData = (updatedUser) => {
-        const validName = updatedUser.fullName || updatedUser.name || "User";
-        const validImage = updatedUser.image || `https://i.pravatar.cc/150?u=${validName}`;
-
-        const userData = { 
-            ...updatedUser, 
-            name: validName, 
-            image: validImage 
-        };
+        const validName = updatedUser.fullName || updatedUser.name || "Authorized User";
+        const validImage = updatedUser.image || `https://i.pravatar.cc/150?u=${updatedUser.email}`;
+        const userData = { ...updatedUser, name: validName, image: validImage };
         
         localStorage.setItem('user', JSON.stringify(userData));
         setUser(userData);
@@ -41,7 +31,7 @@ export default function ProfilePage() {
         setFormData({
             name: validName,
             email: userData.email || '',
-            role: userData.role || '',
+            role: userData.role || 'user',
             image: validImage,
             phone: userData.phone || '',
             address: userData.address || '',
@@ -51,13 +41,9 @@ export default function ProfilePage() {
 
     useEffect(() => {
         const storedUser = localStorage.getItem('user');
-        if (!storedUser) {
-            router.push('/login');
-            return;
-        }
+        if (!storedUser) { router.push('/login'); return; }
         const parsedUser = JSON.parse(storedUser);
         updateUserData(parsedUser);
-        
     }, [router]);
 
     const handleChange = (e) => {
@@ -65,14 +51,6 @@ export default function ProfilePage() {
         setMessage({ type: '', text: '' });
     };
 
-    const handleRandomizeAvatar = () => {
-        const randomId = Math.floor(Math.random() * 1000);
-        const newUrl = `https://i.pravatar.cc/150?img=${randomId}`;
-        setImageURLInput(newUrl);
-        setFormData({ ...formData, image: newUrl });
-        setSelectedImageFile(null);
-    };
-    
     const handleFileChange = (e) => {
         const file = e.target.files[0];
         if (file) {
@@ -80,312 +58,184 @@ export default function ProfilePage() {
             setImageURLInput(''); 
             setFormData({ ...formData, image: URL.createObjectURL(file) });
         }
-        setMessage({ type: '', text: '' });
     };
-    
-    const uploadImage = async () => {
-        const dataToSend = new FormData();
-        dataToSend.append('image', selectedImageFile);
-
-        try {
-            const res = await fetch(`${API_BASE_URL}/api/users/${user.email}/image-upload`, {
-                method: 'PUT',
-                body: dataToSend
-            });
-            
-            const data = await res.json();
-            
-            if (res.ok) {
-                return { success: true, newImageUrl: data.user.image };
-            } else {
-                return { success: false, message: data.detailedError || data.error || data.message || 'Image upload failed.' };
-            }
-
-        } catch (err) {
-            console.error(err);
-            return { success: false, message: 'Server error during image file upload.' };
-        }
-    };
-
 
     const handleSave = async (e) => {
         e.preventDefault();
         setIsSaving(true);
         setMessage({ type: '', text: '' });
+        const dataToSend = new FormData();
+        dataToSend.append('name', formData.name);
+        dataToSend.append('phone', formData.phone);
+        dataToSend.append('location', formData.address);
+        dataToSend.append('bio', formData.bio);
+        if (selectedImageFile) dataToSend.append('image', selectedImageFile);
+        else dataToSend.append('imageURL', imageURLInput);
 
         try {
-            let finalImageUrl = imageURLInput;
-            
-            if (selectedImageFile) {
-                const uploadResult = await uploadImage();
-                
-                if (!uploadResult.success) {
-                    return setMessage({ type: 'error', text: `Image Error: ${uploadResult.message}` });
-                }
-                finalImageUrl = uploadResult.newImageUrl;
-            } else if (imageURLInput !== user.image) {
-                finalImageUrl = imageURLInput;
-            }
-
-            const userPayload = {
-                fullName: formData.name,
-                image: finalImageUrl,
-                phone: formData.phone,
-                address: formData.address,
-                bio: formData.bio
-            };
-
-            const userRes = await fetch(`${API_BASE_URL}/api/users/${user.email}`, {
+            const res = await fetch(`${API_BASE_URL}/api/helper-profile/${user.email}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(userPayload)
+                body: dataToSend
             });
-
-            const userData = await userRes.json();
-
-            if (!userRes.ok) {
-                return setMessage({ type: 'error', text: `Failed to update Profile Text: ${userData.message || 'Unknown error.'}` });
+            if (res.ok) {
+                const updatedData = await res.json();
+                updateUserData(updatedData);
+                window.dispatchEvent(new Event('userUpdated'));
+                setIsEditing(false);
+                setSelectedImageFile(null);
+                setMessage({ type: 'success', text: "✓ PROFILE SYNCHRONIZED." });
+            } else {
+                setMessage({ type: 'error', text: "✓ UPDATE REJECTED." });
             }
-
-            updateUserData(userData.user);
-            
-            setIsEditing(false);
-            setSelectedImageFile(null);
-            
-            let successMessage = "✅ Profile updated successfully! Reloading...";
-            
-            setMessage({ type: 'success', text: successMessage });
-            setTimeout(() => window.location.reload(), 1500); 
-
         } catch (err) {
-            console.error(err);
-            setMessage({ type: 'error', text: "Server error during profile update. Check connection/logs." });
-        } finally {
-            setIsSaving(false);
-        }
+            setMessage({ type: 'error', text: "✓ TRANSMISSION ERROR." });
+        } finally { setIsSaving(false); }
     };
 
     const handleDeleteAccount = async () => {
-        if(!window.confirm("Are you sure? This cannot be undone.")) return;
-
+        if(!window.confirm("PERMANENT DATA PURGE: ARE YOU CERTAIN?")) return;
         try {
             const res = await fetch(`${API_BASE_URL}/api/users/${user.email}`, { method: 'DELETE' });
             if (res.ok) {
                 localStorage.removeItem('user'); 
                 window.location.href = '/signup'; 
-            } else {
-                setMessage({ type: 'error', text: "Failed to delete account." });
             }
-        } catch (err) {
-            console.error(err);
-            setMessage({ type: 'error', text: "Server error during account deletion." });
-        }
-    };
-
-    const getMessageClasses = (type) => {
-        switch (type) {
-            case 'success':
-                return 'bg-green-100 text-green-700 border-green-300';
-            case 'error':
-                return 'bg-red-100 text-red-700 border-red-300';
-            default:
-                return 'hidden';
-        }
+        } catch (err) { setMessage({ type: 'error', text: "PURGE FAILED." }); }
     };
     
-    if (!user) return <div className="min-h-screen bg-gray-100 flex items-center justify-center">Loading...</div>; 
+    if (!user) return (
+        <div className="min-h-screen bg-white flex flex-col items-center justify-center space-y-4">
+            <div className="w-8 h-8 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-slate-900 font-black tracking-widest text-[9px] uppercase italic">Decrypting Profile...</p>
+        </div>
+    );
 
     return (
-        <div className="min-h-screen bg-gray-100 font-sans pb-20">
-            
-            <div className="h-64 bg-gradient-to-r from-gray-900 to-gray-500 relative">
-                 <div className="absolute inset-0 bg-black/10"></div>
+        <div className="min-h-screen bg-gray-200 font-sans text-slate-900">
+            <div className="h-48 bg-slate-950 relative overflow-hidden">
+                 <div className="absolute inset-0 bg-gradient-to-b from-transparent to-slate-950/60"></div>
             </div>
 
-            <div className="max-w-5xl mx-auto px-6 -mt-24 relative z-10">
-                <div className="flex flex-col md:flex-row gap-8">
+            <div className="max-w-[1200px] mx-auto px-6 md:px-25 -mt-20 relative z-10">
+                <div className="flex flex-col lg:flex-row gap-8 items-start">
                     
-                    <div className="md:w-1/3">
-                        <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100">
-                            <div className="p-8 text-center">
-                                <div className="relative inline-block group mb-4">
-                                    <img 
-                                        src={isEditing ? formData.image : user.image} 
-                                        alt={user.name} 
-                                        className="relative w-36 h-36 rounded-full border-4 border-white object-cover shadow-lg bg-white"
-                                        onError={(e) => { e.target.src = `https://i.pravatar.cc/150?u=${user.name}` }} 
-                                    />
-                                </div>
-                                <h2 className="text-2xl font-bold text-gray-900">{user.name}</h2>
-                                <p className="text-gray-500 text-sm mb-4">{user.email}</p>
-                                
-                                <div className="inline-block bg-gray-200 text-gray-800 text-xs font-bold px-4 py-1.5 rounded-full uppercase tracking-wider border border-gray-300">
-                                    {user.role || 'Member'}
-                                </div>
-                                
-                                {!isEditing && (
-                                    <div className="mt-6 text-left space-y-3 border-t border-gray-100 pt-6">
-                                        <div className="flex items-center gap-3 text-sm text-gray-600">
-                                            <span>📞</span> {user.phone || "No phone added"}
-                                        </div>
-                                        <div className="flex items-center gap-3 text-sm text-gray-600">
-                                            <span>📍</span> {user.address || "No address added"}
-                                        </div>
-                                        <div className="mt-4">
-                                            <p className="text-xs font-bold text-gray-400 uppercase">About Me</p>
-                                            <p className="text-sm text-gray-600 italic mt-1">
-                                                &quot;{user.bio || "No bio yet."}&quot;
-                                            </p>
+                    <aside className="w-full lg:w-[360px] lg:sticky lg:top-24">
+                        <div className="bg-white rounded-[2.5rem] shadow-xl overflow-hidden border border-slate-100 p-8 text-center">
+                            <div className="relative inline-block mb-4">
+                                <img src={isEditing ? formData.image : user.image} alt="" className="w-32 h-32 rounded-3xl border-4 border-slate-50 object-cover grayscale group-hover:grayscale-0 transition-all duration-700" />
+                                <div className="absolute -bottom-1 -right-1 bg-slate-950 text-white px-3 py-1 rounded-lg font-black text-[8px] uppercase border-2 border-white">Verified</div>
+                            </div>
+                            <h2 className="text-2xl font-black tracking-tighter uppercase italic text-slate-950">{user.name}</h2>
+                            <p className="text-slate-400 font-bold text-[9px] uppercase tracking-[0.2em] mb-4">{user.email}</p>
+                            
+                            <div className={`inline-block text-white text-[8px] font-black px-4 py-1 rounded-full uppercase tracking-[0.2em] ${user.role === 'admin' ? 'bg-blue-600' : 'bg-slate-950'}`}>
+                                {user.role} Authorization
+                            </div>
+                            
+                            {!isEditing && (
+                                <div className="mt-6 text-left space-y-4 border-t border-slate-50 pt-6">
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-sm opacity-30">📞</span>
+                                        <div>
+                                            <p className="text-[7px] font-black text-slate-300 uppercase tracking-widest leading-none mb-1">Secure Link</p>
+                                            <p className="text-[13px] font-bold text-slate-700">{user.phone || "UNSET"}</p>
                                         </div>
                                     </div>
-                                )}
-                            </div>
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-sm opacity-30">📍</span>
+                                        <div>
+                                            <p className="text-[7px] font-black text-slate-300 uppercase tracking-widest leading-none mb-1">Operational Base</p>
+                                            <p className="text-[13px] font-bold uppercase text-slate-700">{user.address || "UNSET"}</p>
+                                        </div>
+                                    </div>
+                                    <div className="pt-2 border-t border-slate-50">
+                                        <p className="text-[7px] font-black text-slate-300 uppercase tracking-widest mb-1 italic">Dossier Summary</p>
+                                        <p className="text-[12px] text-slate-500 italic leading-snug">
+                                            &quot;{user.bio || "No archives available."}&quot;
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                    </div>
-
-                    <div className="md:w-2/3 space-y-8">
-                        
+                    </aside>
+                    <main className="flex-1 w-full space-y-6">
                         {message.text && (
-                            <div className={`p-4 rounded-lg border font-medium ${getMessageClasses(message.type)}`}>
+                            <div className={`p-4 rounded-xl border font-black text-[9px] tracking-widest uppercase ${message.type === 'success' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-red-50 text-red-700 border-red-100'}`}>
                                 {message.text}
                             </div>
                         )}
 
-                        {/* REMOVED: Verification Actions Card */}
-
-
-                        <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-8">
-                            <div className="flex justify-between items-center mb-8 border-b border-gray-100 pb-4">
+                        <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 p-8 md:p-10">
+                            <div className="flex justify-between items-center mb-8 border-b border-slate-50 pb-6">
                                 <div>
-                                    <h3 className="text-xl font-bold text-gray-900">Profile Settings</h3>
-                                    <p className="text-gray-500 text-sm">Update your personal information</p>
+                                    <span className="text-[9px] font-black text-slate-600 uppercase tracking-[0.5em] block mb-1">Identity Protocol</span>
+                                    <h3 className="text-3xl font-black tracking-tighter text-slate-950 uppercase italic leading-none">Security Settings</h3>
                                 </div>
-                                <button 
-                                    onClick={() => {
-                                        setIsEditing(!isEditing);
-                                        if (isEditing) {
-                                            setFormData({ 
-                                                ...user, 
-                                                name: user.name,
-                                                image: user.image 
-                                            });
-                                            setImageURLInput(user.image);
-                                            setSelectedImageFile(null);
-                                        }
-                                        setMessage({ type: '', text: '' });
-                                    }}
-                                    className={`px-4 py-2 rounded-lg font-bold text-sm transition ${
-                                        isEditing 
-                                        ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' 
-                                        : 'bg-gray-900 text-white hover:bg-gray-700 shadow-md'
-                                    }`}
-                                >
-                                    {isEditing ? 'Cancel Edit' : 'Edit Profile'}
+                                <button onClick={() => { setIsEditing(!isEditing); if (isEditing) updateUserData(user); setMessage({ type: '', text: '' }); }}
+                                    className={`px-5 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all ${isEditing ? 'bg-slate-100 text-slate-400' : 'bg-slate-950 text-white hover:bg-black active:scale-95'}`}>
+                                    {isEditing ? 'Discard' : 'Modify Credentials'}
                                 </button>
                             </div>
 
                             <form onSubmit={handleSave} className="space-y-6">
-                                
                                 {isEditing && (
-                                    <div className="bg-gray-50 p-6 rounded-2xl border border-gray-200 animate-fadeIn mb-6">
-                                        
-                                        <label className="block text-sm font-bold text-gray-900 mb-2">Upload New Picture (File)</label>
-                                        <input 
-                                            type="file" 
-                                            name="imageFile" 
-                                            accept="image/*"
-                                            onChange={handleFileChange}
-                                            className="w-full border border-gray-300 rounded-xl p-2.5 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-200 file:text-gray-900 hover:file:bg-gray-300" 
-                                        />
-                                        {selectedImageFile && (
-                                            <p className="text-xs text-green-500 mt-1">File selected: {selectedImageFile.name}</p>
-                                        )}
-                                        
-                                        <p className="text-center text-gray-400 font-semibold my-4">-- OR --</p>
-
-                                        <label className="block text-sm font-bold text-gray-900 mb-2">Paste Image URL</label>
-                                        <div className="flex gap-3">
-                                            <input 
-                                                type="text" 
-                                                name="imageURLInput" 
-                                                value={imageURLInput} 
-                                                onChange={(e) => {
-                                                    setImageURLInput(e.target.value);
-                                                    setSelectedImageFile(null); 
-                                                    setFormData({ ...formData, image: e.target.value });
-                                                }} 
-                                                placeholder="Paste Image URL"
-                                                className="flex-grow bg-white border border-gray-300 text-gray-900 rounded-xl p-3 text-sm focus:ring-2 focus:ring-gray-400 outline-none"
-                                            />
-                                            <button type="button" onClick={handleRandomizeAvatar} className="bg-white border border-gray-300 text-gray-600 font-bold px-4 py-2 rounded-xl text-sm hover:bg-gray-50">🎲 Random</button>
+                                    <div className="bg-slate-100 p-4 rounded-2xl border border-dashed border-slate-200 animate-in zoom-in-95 duration-300">
+                                        <label className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2 italic">Cloudinary Asset Override</label>
+                                        <input type="file" accept="image/*" onChange={handleFileChange} className="w-full text-[9px] font-black file:bg-slate-950 file:text-white file:border-none file:px-3 file:py-1.5 file:rounded-lg file:mr-4 file:uppercase file:tracking-widest cursor-pointer bg-white p-2 rounded-lg border border-slate-100 mb-3" />
+                                        <div className="relative flex items-center my-3 text-slate-300 font-black uppercase text-[7px] tracking-widest">
+                                            <div className="flex-grow h-px bg-slate-200"></div><span className="mx-4">OR URL</span><div className="flex-grow h-px bg-slate-200"></div>
                                         </div>
+                                        <input type="text" value={imageURLInput} onChange={(e) => { setImageURLInput(e.target.value); setSelectedImageFile(null); setFormData({ ...formData, image: e.target.value }); }} placeholder="System Asset URL" className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-[11px] font-bold focus:ring-1 focus:ring-slate-950 outline-none" />
                                     </div>
                                 )}
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                        <label className="block text-sm font-bold text-gray-700 mb-2">Full Name</label>
-                                        <input 
-                                            type="text" name="name" value={formData.name} onChange={handleChange} disabled={!isEditing}
-                                            className={`w-full border rounded-xl p-3 outline-none transition font-medium ${isEditing ? 'border-gray-400 bg-white text-gray-900' : 'border-gray-200 bg-gray-50 text-gray-500'}`}
-                                        />
+                                    <div className="space-y-1">
+                                        <label className="text-[8px] font-black text-slate-800 uppercase tracking-widest ml-1 italic">Legal Name</label>
+                                        <input type="text" name="name" value={formData.name} onChange={handleChange} disabled={!isEditing} className={`w-full border-b-2 p-2 outline-none transition font-bold text-[14px] ${isEditing ? 'border-slate-950 bg-transparent text-slate-950' : 'border-slate-50 bg-transparent text-slate-600'}`} />
                                     </div>
-                                    <div>
-                                        <label className="block text-sm font-bold text-gray-700 mb-2">Email</label>
-                                        <input type="email" value={formData.email} disabled className="w-full border border-gray-200 bg-gray-50 text-gray-500 rounded-xl p-3 outline-none cursor-not-allowed"/>
+                                    <div className="space-y-1">
+                                        <label className="text-[8px] font-black text-slate-800 uppercase tracking-widest ml-1 italic">Verified Email</label>
+                                        <input type="email" value={formData.email} disabled className="w-full border-b-2 border-slate-50 bg-transparent text-slate-600 p-2 outline-none text-[14px] font-bold uppercase cursor-not-allowed"/>
                                     </div>
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                        <label className="block text-sm font-bold text-gray-700 mb-2">Phone Number</label>
-                                        <input 
-                                            type="text" name="phone" value={formData.phone} onChange={handleChange} disabled={!isEditing}
-                                            placeholder="+1 (555) 000-0000"
-                                            className={`w-full border rounded-xl p-3 outline-none transition font-medium ${isEditing ? 'border-gray-400 bg-white text-gray-900' : 'border-gray-200 bg-gray-50 text-gray-500'}`}
-                                        />
+                                    <div className="space-y-1">
+                                        <label className="text-[8px] font-black text-slate-600 uppercase tracking-widest ml-1 italic">Secure Contact</label>
+                                        <input type="text" name="phone" value={formData.phone} onChange={handleChange} disabled={!isEditing} className={`w-full border-b-2 p-2 outline-none transition font-bold text-[14px] ${isEditing ? 'border-slate-950 bg-transparent text-slate-950' : 'border-slate-50 bg-transparent text-slate-600'}`} />
                                     </div>
-                                    <div>
-                                        <label className="block text-sm font-bold text-gray-700 mb-2">Address / Location</label>
-                                        <input 
-                                            type="text" name="address" value={formData.address} onChange={handleChange} disabled={!isEditing}
-                                            placeholder="e.g. New York, NY"
-                                            className={`w-full border rounded-xl p-3 outline-none transition font-medium ${isEditing ? 'border-gray-400 bg-white text-gray-900' : 'border-gray-200 bg-gray-50 text-gray-500'}`}
-                                        />
+                                    <div className="space-y-1">
+                                        <label className="text-[8px] font-black text-slate-600 uppercase tracking-widest ml-1 italic">Operational Zone</label>
+                                        <input type="text" name="address" value={formData.address} onChange={handleChange} disabled={!isEditing} className={`w-full border-b-2 p-2 outline-none transition font-bold text-[14px] ${isEditing ? 'border-slate-950 bg-transparent text-slate-950' : 'border-slate-50 bg-transparent text-slate-600'}`} />
                                     </div>
                                 </div>
 
-                                <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-2">Bio / About Me</label>
-                                    <textarea 
-                                        name="bio" rows="4" value={formData.bio} onChange={handleChange} disabled={!isEditing}
-                                        placeholder="Tell us a little about yourself..."
-                                        className={`w-full border rounded-xl p-3 outline-none transition font-medium ${isEditing ? 'border-gray-400 bg-white text-gray-900' : 'border-gray-200 bg-gray-50 text-gray-500'}`}
-                                    ></textarea>
+                                <div className="space-y-1">
+                                    <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1 italic">Dossier Summary</label>
+                                    <textarea name="bio" rows="4" value={formData.bio} onChange={handleChange} disabled={!isEditing} className={`w-full border rounded-xl p-3 outline-none transition font-medium text-[13px] italic leading-relaxed ${isEditing ? 'border-slate-950 bg-white text-slate-700' : 'border-slate-50 bg-slate-50 text-slate-600 shadow-inner'}`}></textarea>
                                 </div>
 
                                 {isEditing && (
-                                    <div className="pt-6 border-t border-gray-100 flex justify-end">
-                                        <button 
-                                            type="submit" 
-                                            disabled={isSaving}
-                                            className="bg-gray-900 text-white font-bold px-8 py-3 rounded-xl hover:bg-gray-800 shadow-lg transition transform hover:-translate-y-0.5"
-                                        >
-                                            {isSaving ? 'Saving...' : 'Save Changes'}
+                                    <div className="pt-2 flex justify-end">
+                                        <button type="submit" disabled={isSaving} className="bg-slate-950 text-white font-black px-10 py-3 rounded-xl shadow-2xl uppercase tracking-[0.2em] text-[10px] hover:bg-black active:scale-95 transition-all">
+                                            {isSaving ? 'Processing...' : 'Commit Changes'}
                                         </button>
                                     </div>
                                 )}
                             </form>
                         </div>
 
-                        <div className="bg-white rounded-3xl shadow-sm border border-red-100 p-8">
-                            <h3 className="text-red-700 font-bold text-lg mb-2">⚠️ Danger Zone</h3>
-                            <p className="text-gray-600 text-sm mb-6">Deleting your account is permanent. All data will be lost.</p>
-                            <button onClick={handleDeleteAccount} className="bg-white border-2 border-red-100 text-red-600 font-bold px-6 py-2 rounded-xl hover:bg-red-50 hover:border-red-200 transition">
-                                Delete My Account
+                        <div className="bg-white rounded-[2.5rem] border border-red-100 p-6 flex flex-col md:flex-row justify-between items-center gap-4">
+                            <div className="text-center md:text-left">
+                                <h3 className="text-red-600 font-black text-[9px] uppercase tracking-[0.3em] italic leading-none mb-1">Termination Zone</h3>
+                                <p className="text-slate-400 text-[11px] font-medium leading-none">Permanent purge of all system logs.</p>
+                            </div>
+                            <button onClick={handleDeleteAccount} className="bg-transparent border-2 border-red-50 text-red-500 font-black text-[9px] uppercase tracking-widest px-5 py-2 rounded-xl hover:bg-red-50 active:scale-95 transition-all">
+                                Purge Account
                             </button>
                         </div>
-                    </div>
+                    </main>
                 </div>
             </div>
         </div>

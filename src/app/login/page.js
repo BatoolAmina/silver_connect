@@ -34,11 +34,11 @@ export default function LoginPage() {
                 setMessage({ type: 'success', text: "Login successful! Redirecting..." });
                 setTimeout(() => window.location.href = '/', 1000); 
             } else {
-                setMessage({ type: 'error', text: data.message || "Login failed. Check your email and password." });
+                setMessage({ type: 'error', text: data.message || "Login failed. Check your credentials." });
             }
         } catch (err) {
             console.error(err);
-            setMessage({ type: 'error', text: "Server error. Could not connect to the API." });
+            setMessage({ type: 'error', text: "Server connection failed. Try again later." });
         } finally {
             setIsSubmitting(false);
         }
@@ -50,7 +50,6 @@ export default function LoginPage() {
         
         try {
             const decoded = jwtDecode(credentialResponse.credential);
-            
             const res = await fetch(`${API_BASE_URL}/api/google-login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -65,14 +64,14 @@ export default function LoginPage() {
 
             if (res.ok) {
                 localStorage.setItem('user', JSON.stringify(data.user));
-                setMessage({ type: 'success', text: `Welcome, ${data.user.fullName || data.user.name}! Redirecting...` });
+                setMessage({ type: 'success', text: `Welcome, ${data.user.fullName || data.user.name}!` });
                 window.location.href = '/'; 
             } else {
-                setMessage({ type: 'error', text: "Google Login Sync Failed: " + data.message });
+                setMessage({ type: 'error', text: "Google Sync Failed: " + data.message });
             }
         } catch (err) {
             console.error("Google Login Error:", err);
-            setMessage({ type: 'error', text: "Failed to connect to server during Google login." });
+            setMessage({ type: 'error', text: "Server connection error during Google login." });
         } finally {
             setIsSubmitting(false);
         }
@@ -81,71 +80,109 @@ export default function LoginPage() {
     const getMessageClasses = (type) => {
         switch (type) {
             case 'success':
-                return 'bg-green-100 text-green-700 border-green-300';
+                return 'bg-green-50 text-green-700 border-green-100';
             case 'error':
-                return 'bg-red-100 text-red-700 border-red-300';
+                return 'bg-red-50 text-red-700 border-red-100';
             default:
                 return 'hidden';
         }
     };
 
     return (
-        <div className="min-h-screen flex bg-gray-100 font-sans">
-            <div className="hidden md:flex w-1/2 bg-gradient-to-br from-gray-900 to-gray-500 justify-center items-center relative overflow-hidden">
-                <div className="z-10 text-center px-10">
-                    <h2 className="text-4xl font-extrabold text-white mb-4">Welcome Back!</h2>
-                    <p className="text-gray-100 text-lg">&quot;Caring for our elders is the greatest responsibility and privilege.&quot;</p>
+        <div className="min-h-screen flex bg-gray-50 font-sans">
+            {/* --- LEFT SIDE: THEME NAVY PANEL --- */}
+            <div className="hidden md:flex w-1/2 bg-slate-900 justify-center items-center relative overflow-hidden">
+                <div className="z-10 text-center px-12">
+                    <h1 className="text-5xl font-black text-white mb-6 tracking-tighter italic">
+                        Silver<span className="text-gray-400 font-light">Connect</span>
+                    </h1>
+                    <p className="text-slate-400 text-lg font-medium leading-relaxed max-w-sm mx-auto">
+                        "Caring for our elders is the greatest responsibility and privilege."
+                    </p>
+                </div>
+                {/* Decorative Elements */}
+                <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
+                    <div className="absolute top-10 left-10 w-64 h-64 border border-white rounded-full"></div>
+                    <div className="absolute bottom-20 right-10 w-96 h-96 border border-white rounded-full"></div>
                 </div>
             </div>
 
+            {/* --- RIGHT SIDE: LOGIN FORM --- */}
             <div className="w-full md:w-1/2 flex flex-col justify-center items-center p-8 bg-white">
                 <div className="w-full max-w-md">
-                    <div className="mb-8 text-center md:text-left">
-                        <Link href="/" className="text-gray-900 font-bold text-sm mb-4 inline-block hover:underline">← Back to Home</Link>
-                        <h1 className="text-3xl font-bold text-gray-900">Sign In</h1>
-                        <p className="text-gray-500 mt-2">Enter your credentials to access your account.</p>
+                    <div className="mb-10">
+                        <Link href="/" className="text-slate-900 font-black text-[10px] uppercase tracking-[0.3em] mb-6 inline-block hover:underline">
+                            ← Home
+                        </Link>
+                        <h2 className="text-4xl font-black text-slate-900 tracking-tight">Sign In</h2>
+                        <p className="text-gray-500 mt-2 font-medium">Access your administrative or user portal.</p>
                     </div>
                     
                     {message.text && (
-                        <div className={`p-4 mb-6 rounded-lg border font-medium ${getMessageClasses(message.type)}`}>
+                        <div className={`p-4 mb-8 rounded-2xl border text-xs font-black uppercase tracking-widest ${getMessageClasses(message.type)}`}>
                             {message.text}
                         </div>
                     )}
-                    <div className="w-full mb-6">
+
+                    <div className="w-full mb-8">
                         <GoogleLogin 
                             onSuccess={handleGoogleSuccess} 
-                            onError={() => setMessage({ type: 'error', text: 'Google Login failed. Check console.' })}
-                            containerProps={{ style: { width: '100%', display: 'flex', justifyContent: 'center' } }}
+                            onError={() => setMessage({ type: 'error', text: 'Authentication failed.' })}
                             shape="pill"
+                            theme="outline"
                             size="large"
+                            width="100%"
                         />
                     </div>
 
-                    <div className="relative mb-6">
-                        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200"></div></div>
-                        <div className="relative flex justify-center text-sm"><span className="px-2 bg-white text-gray-500">Or continue with email</span></div>
+                    <div className="relative mb-8">
+                        <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-gray-100"></div>
+                        </div>
+                        <div className="relative flex justify-center text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">
+                            <span className="px-4 bg-white">Internal Credentials</span>
+                        </div>
                     </div>
 
-                    <form onSubmit={handleSubmit} className="space-y-5">
+                    <form onSubmit={handleSubmit} className="space-y-6">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-                            <input type="email" name="email" className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-gray-400 outline-none transition" value={formData.email} onChange={handleChange} required />
+                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Email Address</label>
+                            <input 
+                                type="email" 
+                                name="email" 
+                                className="w-full px-5 py-4 rounded-2xl border border-gray-100 bg-gray-50 text-slate-900 font-bold focus:ring-2 focus:ring-slate-900 outline-none transition-all" 
+                                placeholder="name@domain.com"
+                                value={formData.email} 
+                                onChange={handleChange} 
+                                required 
+                            />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                            <input type="password" name="password" className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-gray-400 outline-none transition" value={formData.password} onChange={handleChange} required />
+                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Security Token</label>
+                            <input 
+                                type="password" 
+                                name="password" 
+                                className="w-full px-5 py-4 rounded-2xl border border-gray-100 bg-gray-50 text-slate-900 font-bold focus:ring-2 focus:ring-slate-900 outline-none transition-all" 
+                                placeholder="••••••••"
+                                value={formData.password} 
+                                onChange={handleChange} 
+                                required 
+                            />
                         </div>
+
                         <button 
                             type="submit" 
                             disabled={isSubmitting}
-                            className={`w-full text-white font-bold py-3 rounded-lg transition duration-300 shadow-md ${isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-gray-900 hover:bg-gray-800'}`}
+                            className={`w-full text-white font-black py-5 rounded-[1.5rem] transition-all uppercase tracking-[0.2em] text-xs shadow-xl active:scale-[0.98] ${
+                                isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-slate-900 hover:bg-black'
+                            }`}
                         >
-                            {isSubmitting ? 'Signing In...' : 'Sign In'}
+                            {isSubmitting ? 'Verifying...' : 'Authorize Login'}
                         </button>
                     </form>
 
-                    <p className="mt-8 text-center text-gray-600">
-                        Don&apos;t have an account? <Link href="/signup" className="text-gray-900 font-bold hover:underline">Create one here</Link>
+                    <p className="mt-10 text-center text-gray-400 text-sm font-medium">
+                        New to the platform? <Link href="/signup" className="text-slate-900 font-black hover:underline underline-offset-4">Create Account</Link>
                     </p>
                 </div>
             </div>

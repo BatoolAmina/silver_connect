@@ -14,7 +14,7 @@ export const metadata = {
 export default function RootLayout({ children }) {
     return (
         <html lang="en">
-            <body className={`${inter.className} bg-gray-100 text-gray-900 flex flex-col min-h-screen`}>
+            <body className={`${inter.className} bg-gray-200 text-gray-900 flex flex-col min-h-screen`}>
                 <GoogleWrapper>
                     <Navbar />
                     <main className="flex-grow">
