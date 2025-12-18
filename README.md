@@ -100,6 +100,7 @@ Security is both functional **and visible**.
 ### Frontend Environment (`.env.local`)
 ```env
 NEXT_PUBLIC_API_BASE_URL=https://backend-minor-project.onrender.com
+```
 
 ## 🛠️ Local Setup (Frontend)
 
