@@ -35,8 +35,6 @@ SilverConnect functions as a **central registry** where:
 - Payments follow an escrow-style confirmation model
 - Admins actively govern the platform
 
-> SilverConnect treats caregiving with the same precision as a modern enterprise SaaS system.
-
 ## Tech Stack
 ### Frontend
 - **Framework:** Next.js 14 (App Router)
