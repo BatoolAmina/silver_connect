@@ -17,9 +17,9 @@ https://backend-minor-project.onrender.com
 https://github.com/BatoolAmina/backend-minor-project
 
 ## PROJECT VISUALS
-###HOME PAGE
+### HOME PAGE
 ![Home Page Interface](./public/homepage.png)
-###ADMIN PAGE
+### ADMIN PAGE
 ![Admin Page Interface](./public/adminpage.png)
 
 **Problem**  
