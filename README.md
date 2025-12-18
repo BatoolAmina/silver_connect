@@ -1,4 +1,4 @@
-# SilverConnect  
+# SilverConnect (Finding Helper for Elderly People)
 
 SilverConnect is a production-grade, full-stack geriatric care coordination platform designed as a **registry and matchmaking protocol**, not a traditional medical website.  
 It connects families with **verified care providers** through a secure, governed, and professionally moderated digital ecosystem.
