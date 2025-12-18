@@ -16,6 +16,9 @@ https://backend-minor-project.onrender.com
 ### Backend Repository
 https://github.com/BatoolAmina/backend-minor-project
 
+## PROJECT VISUALS
+![Home Page Interface](./public/homepage.png)
+
 **Problem**  
 Finding reliable elderly care is difficult due to unverified providers, lack of accountability, and fragmented communication.
 **Solution**  
