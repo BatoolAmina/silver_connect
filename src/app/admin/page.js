@@ -116,7 +116,7 @@ export default function AdminPage() {
 
     return (
         <div className="min-h-screen bg-gray-200 font-sans flex flex-col lg:flex-row">
-            <aside className="w-full lg:w-72 bg-slate-900 text-white lg:h-screen lg:sticky lg:top-0 shadow-2xl flex flex-col z-40">
+            <aside className="w-full lg:w-72 bg-slate-950 text-white lg:h-screen lg:sticky lg:top-0 shadow-2xl flex flex-col z-40">
                 <div className="p-8 border-b border-white/5">
                     <h1 className="text-2xl font-black tracking-tighter text-white uppercase italic">
                         Silver<span className="text-gray-400 font-light">Admin</span>
@@ -159,10 +159,10 @@ export default function AdminPage() {
             </aside>
 
             <main className="flex-1 p-6 lg:p-12 overflow-x-hidden">
-                <header className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-gray-200 pb-8">
+                <header className="mb-3 flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-gray-200 pb-8">
                     <div>
                         <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em]">Control Center</span>
-                        <h2 className="text-5xl font-black text-slate-900 tracking-tighter capitalize mt-1">{activeTab}</h2>
+                        <h2 className="text-3xl font-black text-slate-900 tracking-tighter capitalize mt-1">{activeTab}</h2>
                     </div>
                     {activeTab === 'helpers' && (
                         <button 

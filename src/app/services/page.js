@@ -130,14 +130,26 @@ export default function ServicesPage() {
                     <div className="absolute top-0 right-0 w-64 h-64 bg-slate-50 rounded-full -mr-32 -mt-32"></div>
                 </section>
 
-                <div className="text-center mt-32">
-                    <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.5em] mb-8">Requirement Specification</h2>
-                    <Link href="/contact">
-                        <button className="bg-slate-900 text-white font-black px-12 py-5 rounded-2xl hover:bg-black transition-all shadow-2xl shadow-slate-200 uppercase tracking-[0.3em] text-[10px] active:scale-95">
-                            Contact Us
-                        </button>
-                    </Link>
-                </div>
+                <section className="bg-slate-950 mt-32 rounded-[2.5rem] py-12 text-center border border-white/5 relative overflow-hidden shadow-2xl">
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none opacity-[0.1]">
+                        <h1 className="text-[5rem] md:text-[10rem] font-black text-white tracking-tighter leading-none italic">
+                            CONTACT
+                        </h1>
+                    </div>
+                    
+                    <div className="relative z-10">
+                        
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.3em] mb-8 max-w-xs mx-auto opacity-70">
+                            Requirement Specification
+                        </p>
+
+                        <Link href="/contact">
+                            <button className="bg-white text-slate-950 font-black px-10 py-4 rounded-xl hover:bg-slate-200 transition-all shadow-xl uppercase tracking-widest text-xs active:scale-95">
+                                Contact Us
+                            </button>
+                        </Link>
+                    </div>
+                </section>
             </main>
         </div>
     );

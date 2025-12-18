@@ -113,7 +113,7 @@ export default function AboutPage() {
                 </section>
 
                 <section className="bg-slate-950 rounded-[2.5rem] py-12 text-center border border-white/5 relative overflow-hidden shadow-2xl">
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none opacity-[0.03]">
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none opacity-[0.1]">
                         <h1 className="text-[10rem] md:text-[15rem] font-black text-white tracking-tighter leading-none italic">
                             CONNECT
                         </h1>

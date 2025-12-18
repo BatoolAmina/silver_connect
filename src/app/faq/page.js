@@ -123,17 +123,31 @@ export default function FAQPage() {
                     </div>
                 ))}
 
-                <div className="text-center mt-14 md:p-4 relative overflow-hidden">
+                <section className="bg-slate-950 rounded-[2.5rem] py-12 text-center border border-white/5 relative overflow-hidden shadow-2xl">
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none opacity-[0.1]">
+                        <h1 className="text-[5rem] md:text-[11rem] font-black text-white tracking-tighter leading-none italic">
+                            CONTACT
+                        </h1>
+                    </div>
+                    
                     <div className="relative z-10">
-                        <h3 className="text-2xl font-black text-slate-900 mb-4 uppercase tracking-tight">Still have questions?</h3>
-                        <p className="text-slate-500 font-medium mb-10 max-w-md mx-auto">Can't find what you're looking for? Our support team is ready to assist you individually.</p>
+                        <div className="flex items-center justify-center gap-2 mb-4">   
+                            <h2 className="text-xl font-black text-white uppercase tracking-tighter italic">
+                                Initiate Session Today.
+                            </h2>
+                        </div>
+                        
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.3em] mb-8 max-w-xs mx-auto opacity-70">
+                            Can't find what you're looking for? Our support team is ready to assist you individually.
+                        </p>
+
                         <Link href="/contact">
-                            <button className="bg-slate-900 text-white font-black px-12 py-5 rounded-2xl uppercase tracking-widest text-xs hover:bg-black transition-all shadow-2xl shadow-slate-200 active:scale-95">
+                            <button className="bg-white text-slate-950 font-black px-10 py-4 rounded-xl hover:bg-slate-200 transition-all shadow-xl uppercase tracking-widest text-xs active:scale-95">
                                 Contact Support
                             </button>
                         </Link>
                     </div>
-                </div>
+                </section>
             </main>
         </div>
     );
