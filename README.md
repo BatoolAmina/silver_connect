@@ -19,8 +19,12 @@ https://github.com/BatoolAmina/backend-minor-project
 ## PROJECT VISUALS
 ### HOME PAGE
 ![Home Page Interface](./public/homepage.png)
-### ADMIN PAGE
-![Admin Page Interface](./public/adminpage.png)
+### ADMIN DASHBOARD
+![Admin Dashboard Interface](./public/adminpage.png)
+### USER DASHBOARD
+![User Dashboard Interface](./public/userdashboard.png)
+### HELPER DASHBOARD
+![Helper Dashboard Interface](./public/helperdashboard.png)
 
 **Problem**  
 Finding reliable elderly care is difficult due to unverified providers, lack of accountability, and fragmented communication.
