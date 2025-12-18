@@ -224,7 +224,7 @@ export default function Dashboard() {
                             key={tab}
                             onClick={() => setActiveTab(tab)} 
                             className={`px-12 py-3.5 rounded-[1.5rem] font-black text-[10px] uppercase tracking-[0.3em] transition-all ${
-                                activeTab === tab ? 'bg-slate-900 text-white shadow-xl' : 'text-gray-300 hover:text-slate-600'
+                                activeTab === tab ? 'bg-slate-900 text-white shadow-xl' : 'text-gray-600 hover:text-slate-600'
                             }`}
                         >
                             {tab}
@@ -250,7 +250,7 @@ export default function Dashboard() {
                                         </div>
                                         <div>
                                             <span className="text-[8px] font-black uppercase tracking-widest text-gray-300 block mb-1 italic uppercase">Registry Identity</span>
-                                            <h3 className="text-2xl font-black uppercase italic tracking-tighter text-slate-900">{booking.helperName}</h3>
+                                            <h3 className="text-xl font-black uppercase italic tracking-tighter text-slate-900">{booking.helperName}</h3>
                                             <div className="flex gap-4 mt-2">
                                                 <span className="text-gray-400 text-[10px] font-bold uppercase tracking-widest">{booking.date}</span>
                                                 <span className="text-gray-300 text-[10px] font-black italic">@ {booking.startTime}</span>
