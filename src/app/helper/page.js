@@ -105,7 +105,7 @@ export default function HelpersRegistryPage() {
                 
             </header>
             
-            <div className="max-w-[1600px] mx-auto px-6 md:px-12 -mt-12 mb-15 relative z-20"> 
+            <div className="max-w-[1600px] mx-auto px-6 md:px-12 -mt-12 mb-20 relative z-20"> 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10">
                     {filteredHelpers.length > 0 ? (
                         filteredHelpers.map((helper) => (

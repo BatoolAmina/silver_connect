@@ -48,7 +48,7 @@ export default function AboutPage() {
                 </div>
             </header>
 
-            <div className="max-w-[1200px] mx-auto px-6 md:px-12 -mt-16 relative z-20">
+            <div className="max-w-[1200px] mx-auto px-6 md:px-12 mb-20 -mt-16 relative z-20">
                 <section className="bg-white rounded-[3rem] shadow-sm border border-slate-100 p-8 md:p-12 mb-12">
                     <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-20">
                         <div className="w-full lg:w-1/2">
